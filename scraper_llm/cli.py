@@ -18,7 +18,7 @@ from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.table import Table
 
 from . import __version__
-from .search import WebSearcher, SearchEngine, SearchResult, SearchIntent, EntityType
+from .search import SerpAPISearcher, WebSearcher, SearchEngine, SearchResult, SearchIntent, EntityType
 from .core.config import settings
 from .core.logging import setup_logging
 from .utils.results import format_results
@@ -230,8 +230,13 @@ def search(
     try:
         # Show search parameters
         with console.status("[bold green]Searching...") as status:
-            # Initialize the searcher
-            searcher = WebSearcher(extract_entities=not no_entities)
+            try:
+                # Initialize the search engine with SerpAPI
+                searcher = SerpAPISearcher()
+            except Exception as e:
+                console.print(f"[red]Error initializing SerpAPI searcher: {e}[/red]")
+                console.print("[yellow]Falling back to WebSearcher...[/yellow]")
+                searcher = WebSearcher(extract_entities=not no_entities)
             
             # Execute the search
             status.update("[bold green]Executing search...")

@@ -32,14 +32,14 @@ def format_results(
         Formatted results as a string if not writing to file, else None
     """
     format_type = format_type.lower()
-    include_entities = kwargs.get("include_entities", True)
+    include_entities = kwargs.pop("include_entities", True)
     
     if format_type == "json":
         return _export_to_json(results, output_file, include_entities)
     elif format_type == "csv":
         return _export_to_csv(results, output_file, include_entities)
     else:  # console
-        return _format_for_console(results, include_entities, **kwargs)
+        return _format_for_console(results, include_entities=include_entities, **kwargs)
 
 
 def _export_to_json(
@@ -164,6 +164,8 @@ def _format_for_console(
     Returns:
         Formatted string for console output
     """
+    # Remove include_entities from kwargs to avoid duplicate parameter
+    kwargs.pop('include_entities', None)
     use_color = kwargs.get("color", True)
     console = Console(color_system="auto" if use_color else None)
     
