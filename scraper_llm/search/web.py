@@ -15,6 +15,7 @@ from .base import SearchEngine, SearchResult, SearchIntent, EntityType
 from ..utils.ner import extract_entities_async
 from ..core.config import get_settings
 from ..utils.ner import extract_entities
+import ssl
 
 # Get application settings
 settings = get_settings()
@@ -165,50 +166,52 @@ class WebSearcher(SearchEngine):
             self.session._connector = None
             
     async def _search_google(
-        self, 
-        query: str, 
-        max_results: int = 10,
-        **kwargs
+        self, query: str, max_results: int = 10, **kwargs
     ) -> List[SearchResult]:
-        """Search Google asynchronously.
+        """Perform a search using Google.
         
         Args:
             query: The search query string
             max_results: Maximum number of results to return (1-100)
             **kwargs: Additional search parameters
-            
+                - lang: Language code (e.g., 'en', 'es', 'fr')
+                - country: Country code (e.g., 'us', 'uk', 'ca')
+                - tbs: Time-based search (e.g., 'qdr:h' for past hour, 'qdr:d' for past day)
+                
         Returns:
             List of search results
-            
-        Raises:
-            ValueError: If max_results is not between 1 and 100
-            aiohttp.ClientError: If there's an error making the request
         """
         if not 1 <= max_results <= 100:
             raise ValueError("max_results must be between 1 and 100")
             
-        # Create session if it doesn't exist
-        if self.session is None or self.session.closed:
-            self.session = aiohttp.ClientSession(
-                headers={"User-Agent": self.user_agent},
-                timeout=aiohttp.ClientTimeout(total=self.timeout)
-            )
-        
         try:
             # Prepare search parameters
             params = SEARCH_ENGINES["google"]["params"].copy()
             params["q"] = query
             params["num"] = max_results
             
-            # Apply rate limiting
-            await self._rate_limit()
+            # Create a custom SSL context that verifies certificates
+            ssl_context = ssl.create_default_context()
             
-            # Make the request
-            async with self.session.get(SEARCH_ENGINES["google"]["url"], params=params) as response:
-                response.raise_for_status()
-                html = await response.text()
-                
-            # Parse the HTML
+            # Make the request with SSL verification enabled
+            conn = aiohttp.TCPConnector(ssl=ssl_context)
+            timeout = aiohttp.ClientTimeout(total=self.timeout)
+            
+            async with aiohttp.ClientSession(
+                connector=conn, 
+                timeout=timeout,
+                headers={"User-Agent": self.user_agent}
+            ) as session:
+                # Make the request
+                async with session.get(
+                    SEARCH_ENGINES["google"]["url"], 
+                    params=params,
+                    ssl=ssl_context
+                ) as response:
+                    response.raise_for_status()
+                    html = await response.text()
+            
+            # Parse the HTML response
             soup = BeautifulSoup(html, "html.parser")
             results = soup.select(SEARCH_ENGINES["google"]["result_selector"])
             
@@ -218,7 +221,11 @@ class WebSearcher(SearchEngine):
                 title = result.select_one(SEARCH_ENGINES["google"]["title_selector"]).text.strip()
                 link = result.select_one(SEARCH_ENGINES["google"]["link_selector"])["href"]
                 snippet = result.select_one(SEARCH_ENGINES["google"]["snippet_selector"]).text.strip()
-                search_results.append(SearchResult(title, link, snippet))
+                search_results.append(SearchResult(
+                    title=title,
+                    url=link,
+                    snippet=snippet
+                ))
                 
             return search_results
             

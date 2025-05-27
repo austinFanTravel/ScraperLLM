@@ -47,8 +47,7 @@ SEARCH_INTENT_MAP = {
     "thing": SearchIntent.THING,
 }
 
-# Global settings
-settings = get_settings()
+# Settings are already imported from core.config
 console = Console()
 
 

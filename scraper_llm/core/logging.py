@@ -50,7 +50,7 @@ def configure_logging(
             format="{time:YYYY-MM-DD HH:mm:ss.SSS} | {level: <8} | "
             "{name}:{function}:{line} - {message}",
         )
-
+    
     # Set log level from environment variable if not provided
     env_log_level = os.getenv("LOG_LEVEL")
     if env_log_level:
@@ -59,3 +59,7 @@ def configure_logging(
     logger.info(f"Logging configured with level: {log_level}")
     if log_file:
         logger.info(f"Logging to file: {os.path.abspath(log_file)}")
+
+
+# For backward compatibility
+setup_logging = configure_logging
