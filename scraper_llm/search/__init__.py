@@ -7,6 +7,7 @@ and result formats.
 
 from .base import SearchEngine, SearchResult, SearchIntent, EntityType, Entity
 from .serpapi_search import SerpAPISearcher, WebSearcher
+from .semantic_search import SemanticSearcher
 
 __all__ = [
     # Base classes
@@ -15,7 +16,8 @@ __all__ = [
     "SearchIntent",
     "EntityType",
     "Entity",
-    # Implementations
-    "SerpAPISearcher",
-    "WebSearcher",  # Alias for backward compatibility
+    # Concrete implementations
+    'SerpAPISearcher',
+    'WebSearcher',
+    'SemanticSearcher',
 ]
