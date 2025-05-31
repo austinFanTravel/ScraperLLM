@@ -53,3 +53,6 @@ logs/
 # Data
 data/
 examples/training_data.json
+fine_tuned_models/tokenizer.json
+fine_tuned_models/model.safetensors
+fine_tuned_models/vocab.txt
