@@ -1,0 +1,7 @@
+{
+  "training_date": "2025-05-31T15:30:08.617440",
+  "num_examples": 200,
+  "epochs": 3,
+  "batch_size": 16,
+  "model_path": "./fine_tuned_models"
+}

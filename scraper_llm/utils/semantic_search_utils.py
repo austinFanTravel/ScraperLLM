@@ -194,10 +194,13 @@ class SemanticSearchTool:
                 # Angular distance is in [0, 2], convert to similarity [0, 1]
                 score = 1 - (distance / 2)
                 if score >= score_threshold:
+                    metadata = self.metadatas[idx] if idx < len(self.metadatas) else {}
                     results.append({
                         'text': self.documents[idx],
-                        'metadata': self.metadatas[idx],
-                        'score': float(score)
+                        'metadata': metadata,
+                        'title': metadata.get('title', 'No title'),
+                        'url': metadata.get('url', ''),
+                        'score': score
                     })
         else:
             # Fall back to exact search (slower for large datasets)
@@ -343,18 +346,41 @@ class SemanticSearchTool:
         evaluator = None
         if evaluation_steps > 0 and len(train_examples) > 10:  # Only if we have enough examples
             # Create a small evaluation set from the training data
-            eval_examples = train_examples[:10]  # Use first 10 examples for evaluation
+            eval_examples = train_examples[:min(10, len(train_examples))]  # Use up to 10 examples for evaluation
             queries = [ex['query'] for ex in eval_examples]
-            corpus = list({ex['pos'] for ex in eval_examples} | 
-                        {ex.get('neg', '') for ex in eval_examples if 'neg' in ex})
             
-            # Remove empty strings from corpus
-            corpus = [doc for doc in corpus if doc.strip()]
+            # Create a dictionary of all unique documents with string keys
+            all_docs = {}
+            doc_to_idx = {}
+            doc_counter = 0
             
-            # Create evaluator
+            # First collect all unique documents
+            for ex in eval_examples:
+                if ex['pos'] not in doc_to_idx:
+                    doc_id = str(doc_counter)
+                    doc_to_idx[ex['pos']] = doc_id
+                    all_docs[doc_id] = ex['pos']
+                    doc_counter += 1
+                
+                if 'neg' in ex and ex['neg'] not in doc_to_idx:
+                    doc_id = str(doc_counter)
+                    doc_to_idx[ex['neg']] = doc_id
+                    all_docs[doc_id] = ex['neg']
+                    doc_counter += 1
+            
+            # Create relevant_docs: map query index to set of relevant doc IDs (as strings)
+            relevant_docs = {}
+            for i, ex in enumerate(eval_examples):
+                relevant_docs[str(i)] = {doc_to_idx[ex['pos']]}
+            
+            # Create a mapping of query text to query ID
+            queries_dict = {str(i): query for i, query in enumerate(queries)}
+            
+            # Create evaluator with properly formatted inputs
             evaluator = evaluation.InformationRetrievalEvaluator(
-                queries=queries,
-                corpus=corpus,
+                queries=queries_dict,  # dict of query_id -> query
+                corpus=all_docs,       # dict of doc_id -> doc_text
+                relevant_docs=relevant_docs,  # dict of query_id -> set of relevant doc_ids
                 show_progress_bar=show_progress_bar
             )
         
