@@ -200,14 +200,17 @@ class SearchAssistant:
     @staticmethod
     def _extract_domain(url: str) -> str:
         """Extract domain from URL."""
-        from urllib.parse import urlparse
+        if not url:
+            return 'N/A'
         try:
-            domain = urlparse(url).netloc
-            if domain.startswith('www.'):
-                domain = domain[4:]
-            return domain
-        except:
-            return ''
+            # Remove protocol and www. if present
+            domain = url.split('//')[-1].split('/')[0]
+            domain = domain.replace('www.', '')
+            # Take only the main domain (e.g., 'example.com' from 'sub.example.com')
+            return '.'.join(domain.split('.')[-2:])
+        except Exception as e:
+            logger.warning(f"Error extracting domain from {url}: {e}")
+        return 'N/A'
     
     def filter_results(
         self,
@@ -432,15 +435,15 @@ def example_usage():
     
     # 2. Perform a basic search
     console.print("\n[bold]2. Performing a basic search...[/]")
-    query = "best machine learning libraries 2023"
+    query = "the rock diet and workout"  ##Type in Search Query Here!!!###
     console.print(f"Searching for: [cyan]{query}[/]")
     
     with console.status("[bold green]Searching..."):
         results = assistant.search(
             query=query,
-            num_results=5,
-            min_relevance=0.3,  # Only include results with at least 30% relevance
-            domains=["github.com", "paperswithcode.com"]  # Filter by domain
+            num_results=5, #Max search results
+            min_relevance=0.2,  # Only include results with at least 20% relevance
+            domains=["google.com", "youtube.com", "instagram.com", "twitter.com", "facebook.com", "tiktok.com", "reddit.com"]  # Filter by domain
         )
     
     # 3. Add training examples to improve results
@@ -455,13 +458,13 @@ def example_usage():
     console.print(Panel(training_text, title="Training Data", border_style="blue"))
     
     assistant.add_training_example(
-        query="machine learning libraries",
+        query="the rock workout and diet",
         preferred_results=[
-            {"text": "TensorFlow is an open-source machine learning library developed by Google."},
-            {"text": "PyTorch is a popular open-source ML library developed by Facebook's AI Research lab."}
+            {"text": "The Rock's workout routine."},
+            {"text": "The Rock's diet."}
         ],
         negative_results=[
-            {"text": "This is a general article about programming, not specific to ML libraries."}
+            {"text": "General fitness articles."}
         ]
     )
     
