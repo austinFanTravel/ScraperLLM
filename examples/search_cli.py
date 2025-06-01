@@ -29,7 +29,7 @@ class SearchCLI:
         self.console = Console()
         self.current_query = ""
         self.search_history = []
-        self.model_path = model_path or "./fine_tuned_model"
+        self.model_path = model_path or "./fine_tuned_models"
         
         # Initialize search assistant
         self._init_assistant()
@@ -38,9 +38,18 @@ class SearchCLI:
         """Initialize the search assistant with the fine-tuned model"""
         try:
             self.console.print("[yellow]Loading search assistant...[/yellow]")
-            semantic_searcher = SemanticSearchTool(model_name_or_path=self.model_path)
-            self.assistant = SearchAssistant(semantic_searcher=semantic_searcher)
-            self.console.print("[green]✓ Search assistant ready![/green]\n")
+            
+            # Check if model path exists
+            model_path = Path(self.model_path)
+            if not model_path.exists():
+                self.console.print(f"[yellow]Model not found at {model_path}, using default model[/yellow]")
+                self.assistant = SearchAssistant()
+                return
+                
+            # Initialize SearchAssistant with the custom model path
+            self.assistant = SearchAssistant(model_name=str(model_path.absolute()))
+            self.console.print("[green]✓ Loaded fine-tuned model![/green]\n")
+                
         except Exception as e:
             self.console.print(f"[red]Error initializing search assistant: {e}[/red]")
             self.console.print("[yellow]Falling back to default model...[/yellow]")
@@ -122,22 +131,26 @@ class SearchCLI:
         table = Table(show_header=True, header_style="bold magenta")
         table.add_column("#", width=3)
         table.add_column("Title", width=50)
+        table.add_column("URL", width=50)
         table.add_column("Relevance", width=10)
         table.add_column("Domain", width=20)
         
         for i, result in enumerate(results, 1):
             title = result.get('title', 'No title')
-            relevance = result.get('relevance', 0)
-            domain = result.get('domain', 'N/A')
+            url = result.get('url', 'No URL')
+            snippet = result.get('snippet', 'No snippet available')
+            relevance = result.get('relevance_score', result.get('relevance', 0))
+            domain = result.get('domain', self._extract_domain(url) if url != 'No URL' else 'N/A')
             
-            # Truncate long titles
-            if len(title) > 60:
-                title = title[:57] + "..."
+            # Truncate long titles and URLs for display
+            display_title = (title[:47] + '...') if len(title) > 50 else title
+            display_url = (url[:47] + '...') if len(url) > 50 else url
             
             table.add_row(
                 str(i),
-                title,
-                f"{relevance:.2f}",
+                display_title,
+                display_url,
+                f"{float(relevance):.2f}",
                 domain
             )
         
@@ -163,12 +176,25 @@ class SearchCLI:
             except ValueError:
                 self.console.print("[red]Please enter a valid number[/red]")
     
+    def _extract_domain(self, url):
+        """Extract domain from URL"""
+        if not url or url == 'No URL':
+            return 'N/A'
+        try:
+            # Remove protocol and www. if present
+            domain = url.split('//')[-1].split('/')[0]
+            domain = domain.replace('www.', '')
+            # Take only the main domain (e.g., 'example.com' from 'sub.example.com')
+            return '.'.join(domain.split('.')[-2:])
+        except Exception:
+            return 'N/A'
+    
     def _show_result_details(self, result):
         """Show detailed information about a search result"""
         title = result.get('title', 'No title')
         url = result.get('url', 'No URL')
         snippet = result.get('snippet', 'No snippet available')
-        relevance = result.get('relevance', 0)
+        relevance = result.get('relevance_score', result.get('relevance', 0))
         
         panel = Panel(
             f"[bold]URL:[/bold] {url}\n\n"

@@ -37,6 +37,7 @@ class SerpAPISearcher(SearchEngine):
         query: str,
         max_results: int = 10,
         intent: Optional[SearchIntent] = None,
+        sites: Optional[List[str]] = None,
         **kwargs
     ) -> List[SearchResult]:
         """Perform an asynchronous search using SerpAPI.
@@ -45,15 +46,28 @@ class SerpAPISearcher(SearchEngine):
             query: The search query string.
             max_results: Maximum number of results to return (1-100).
             intent: Optional search intent to filter results.
+            sites: Optional list of domains to limit the search to.
+                 Example: ["example.com", "test.org"] will only return results from these domains.
             **kwargs: Additional search parameters.
-            
+                - location: Geographic location for search
+                - tbs: Time-based search filter (e.g., 'qdr:h' for past hour)
+                - any other SerpAPI parameters
+                
         Returns:
             List of search results.
         """
         try:
+            # Build the search query with site restrictions if provided
+            search_query = query
+            if sites and isinstance(sites, list):
+                # Format: (query) (site:example1.com OR site:example2.com)
+                site_restrictions = " OR ".join(f"site:{site.strip()}" for site in sites if site.strip())
+                if site_restrictions:
+                    search_query = f"({query}) ({site_restrictions})"
+            
             # Prepare search parameters
             params = {
-                "q": query,
+                "q": search_query,  # Use the modified query with site restrictions
                 "num": min(max(1, max_results), 100),  # Ensure between 1-100
                 "api_key": self.api_key,
                 "hl": "en",  # Language: English
@@ -68,7 +82,13 @@ class SerpAPISearcher(SearchEngine):
             
             # Execute the search
             search = GoogleSearch(params)
-            results = search.get_dict()
+            # Search within specific sites
+            results = await searcher.search_async(
+                query,
+                sites=["google.com", "instagram.com", "twitter.com", "facebook.com", "youtube.com", "tmz.com", "tiktok.com"], # Sites to search within **Implement Reddit here once search function shows results appropriately
+                max_results=max_results,
+                **kwargs
+            )
             
             # Parse the results
             search_results = []
@@ -87,6 +107,15 @@ class SerpAPISearcher(SearchEngine):
                     except Exception as e:
                         self.logger.error(f"Error parsing result: {e}")
                         continue
+            
+            # Rest of the method remains the same...
+            # [Previous code for handling answer boxes, knowledge graph, etc.]
+            
+            return search_results
+            
+        except Exception as e:
+            self.logger.error(f"Search failed: {e}")
+            raise
             
             # If no organic results, check for answer box or knowledge graph
             if not search_results and ("answer_box" in results or "knowledge_graph" in results):
