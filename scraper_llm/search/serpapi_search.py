@@ -82,13 +82,7 @@ class SerpAPISearcher(SearchEngine):
             
             # Execute the search
             search = GoogleSearch(params)
-            # Search within specific sites
-            results = await searcher.search_async(
-                query,
-                sites=["google.com", "instagram.com", "twitter.com", "facebook.com", "youtube.com", "tmz.com", "tiktok.com"], # Sites to search within **Implement Reddit here once search function shows results appropriately
-                max_results=max_results,
-                **kwargs
-            )
+            results = search.get_dict()
             
             # Parse the results
             search_results = []
@@ -107,15 +101,6 @@ class SerpAPISearcher(SearchEngine):
                     except Exception as e:
                         self.logger.error(f"Error parsing result: {e}")
                         continue
-            
-            # Rest of the method remains the same...
-            # [Previous code for handling answer boxes, knowledge graph, etc.]
-            
-            return search_results
-            
-        except Exception as e:
-            self.logger.error(f"Search failed: {e}")
-            raise
             
             # If no organic results, check for answer box or knowledge graph
             if not search_results and ("answer_box" in results or "knowledge_graph" in results):

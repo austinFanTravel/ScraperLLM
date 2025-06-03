@@ -110,12 +110,59 @@ class SearchAssistant:
         except Exception as e:
             logger.error(f"Failed to save data: {e}")
     
+    def _keyword_search_wrapper(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
+        """
+        Wrapper method to make SerpAPISearcher compatible with hybrid_search.
+        
+        Args:
+            query: The search query
+            k: Maximum number of results to return
+            
+        Returns:
+            List of search results in the format expected by hybrid_search
+        """
+        import asyncio
+        
+        try:
+            # Run the async search and get results
+            loop = asyncio.get_event_loop()
+            if loop.is_running():
+                # If we're in an async context, create a new event loop
+                loop = asyncio.new_event_loop()
+                asyncio.set_event_loop(loop)
+            
+            # Convert k to num_results for the search method
+            results = loop.run_until_complete(
+                self.keyword_searcher.search_async(query, max_results=k)
+            )
+            
+            # Convert results to the format expected by hybrid_search
+            formatted_results = []
+            for result in results:
+                formatted_results.append({
+                    'text': getattr(result, 'snippet', ''),
+                    'metadata': {
+                        'title': getattr(result, 'title', ''),
+                        'url': getattr(result, 'url', ''),
+                        'source': 'serpapi'
+                    },
+                    'score': 1.0  # Default score for keyword results
+                })
+            
+            return formatted_results
+            
+        except Exception as e:
+            logger.error(f"Keyword search failed: {e}")
+            return []
+    
     def search(
         self,
         query: str,
         num_results: int = 10,
         min_relevance: float = 0.0,
-        domains: Optional[List[str]] = None
+        domains: Optional[List[str]] = None,
+        use_hybrid: bool = True,
+        **kwargs  # Accept additional kwargs for compatibility with hybrid_search
     ) -> List[Dict[str, Any]]:
         """
         Perform a hybrid search and return formatted results.
@@ -125,23 +172,35 @@ class SearchAssistant:
             num_results: Maximum number of results to return
             min_relevance: Minimum relevance score (0.0-1.0)
             domains: Optional list of domains to filter results
-            export_excel: Whether to export results to Excel
-            excel_path: Custom path for Excel export (defaults to data_dir/results/query_timestamp.xlsx)
+            use_hybrid: Whether to use hybrid search. If False, uses semantic search only.
+            **kwargs: Additional keyword arguments for compatibility
             
         Returns:
             List of search results with metadata
         """
+        # Handle the 'k' parameter for compatibility with hybrid_search
+        k = kwargs.get('k', num_results)
+        
         logger.info(f"Performing search: {query}")
         
         try:
-            # Perform hybrid search
-            results = hybrid_search(
-                semantic_searcher=self.semantic_searcher,
-                keyword_searcher=self.keyword_searcher,
-                query=query,
-                k=num_results * 2,  # Get extra results for filtering
-                alpha=0.7
-            )
+            if use_hybrid and self.keyword_searcher:
+                # Perform hybrid search
+                results = hybrid_search(
+                    semantic_searcher=self.semantic_searcher,
+                    keyword_searcher=self._keyword_search_wrapper,  # Pass the wrapper method
+                    query=query,
+                    k=k * 2,  # Get extra results for filtering
+                    alpha=0.7
+                )
+            else:
+                # Fall back to semantic search only
+                logger.info("Using semantic search only")
+                results = self.semantic_searcher.search(
+                    query=query,
+                    k=k * 2,
+                    score_threshold=min_relevance
+                )
             
             # Format results
             formatted_results = self._format_results(results)
@@ -158,7 +217,8 @@ class SearchAssistant:
                 'query': query,
                 'timestamp': datetime.now().isoformat(),
                 'num_results': len(filtered_results),
-                'results': filtered_results
+                'results': filtered_results,
+                'search_type': 'hybrid' if use_hybrid and self.keyword_searcher else 'semantic'
             }
             self.search_history.append(search_entry)
             
@@ -172,7 +232,8 @@ class SearchAssistant:
             
         except Exception as e:
             logger.error(f"Search failed: {e}")
-            raise
+            # Return empty list on error
+            return []
     
     def _format_results(self, results: List[Dict]) -> List[Dict]:
         """Format search results for display and export."""

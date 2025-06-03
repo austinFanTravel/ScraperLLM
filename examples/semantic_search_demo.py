@@ -17,6 +17,7 @@ import os
 import json
 from pathlib import Path
 from typing import List, Dict, Any
+import asyncio
 
 # Add parent directory to path to import scraper_llm
 import sys
@@ -157,13 +158,21 @@ def demo_fine_tuning(searcher: SemanticSearchTool):
     
     return searcher
 
-def demo_hybrid_search():
+async def demo_hybrid_search():
     """Demonstrate hybrid search combining semantic and keyword search."""
+    console = Console()
     console.print("\n[bold blue]=== Hybrid Search Demo ===[/]")
     
     # Initialize searchers
     semantic_searcher = SemanticSearchTool(model_name="all-MiniLM-L6-v2")
-    keyword_searcher = SerpAPISearcher()  # Using SerpAPI as the keyword searcher
+    
+    # Initialize SerpAPI searcher
+    try:
+        keyword_searcher = SerpAPISearcher()
+    except ValueError as e:
+        console.print(f"[yellow]Warning: {e}[/]")
+        console.print("Skipping hybrid search demo. Make sure to set SERPAPI_KEY in your .env file.")
+        return
     
     # Add some sample documents
     documents = [
@@ -205,53 +214,61 @@ def demo_hybrid_search():
     # Get keyword results (using SerpAPI)
     try:
         console.print("\n[underline]Keyword Search Results (from SerpAPI):[/]")
-        keyword_results = keyword_searcher.search(query, max_results=3)
         
-        # Convert to common format for display
-        formatted_keyword_results = [
-            {
-                'text': f"{res.title}: {res.snippet}",
-                'score': 1.0 - (i / len(keyword_results)),
-                'metadata': {'source': 'serpapi', 'url': res.url}
-            }
-            for i, res in enumerate(keyword_results)
-        ]
-        print_results(query, formatted_keyword_results, show_metadata=True)
-        
-        # Perform hybrid search
-        console.print("\n[underline]Hybrid Search Results:[/]")
-        hybrid_results = hybrid_search(
-            semantic_searcher=semantic_searcher,
-            keyword_searcher=keyword_searcher,
-            query=query,
-            k=3,
-            alpha=0.7  # Weight for semantic search
-        )
-        print_results(query, hybrid_results, show_metadata=True)
-        
+        # Execute the async search
+        if hasattr(keyword_searcher, 'search_async'):
+            keyword_results = await keyword_searcher.search_async(query, max_results=3)
+            
+            # Convert to common format for display
+            formatted_keyword_results = [
+                {
+                    'text': f"{getattr(res, 'title', '')}: {getattr(res, 'snippet', '')}",
+                    'score': 1.0 - (i / len(keyword_results)) if keyword_results else 0,
+                    'metadata': {
+                        'source': 'serpapi',
+                        'url': getattr(res, 'url', '')
+                    }
+                }
+                for i, res in enumerate(keyword_results or [])
+            ]
+            print_results(query, formatted_keyword_results, show_metadata=True)
+            
+            # Perform hybrid search
+            console.print("\n[underline]Hybrid Search Results:[/]")
+            hybrid_results = await hybrid_search(
+                semantic_searcher=semantic_searcher,
+                keyword_searcher=keyword_searcher,
+                query=query,
+                k=3,
+                alpha=0.7  # Weight for semantic search
+            )
+            print_results(query, hybrid_results, show_metadata=True)
+        else:
+            console.print("[yellow]Warning: Keyword searcher does not support async search[/]")
+            
     except Exception as e:
         console.print(f"[yellow]Warning: Could not perform keyword search: {e}[/]")
-        console.print("Make sure you have set up SerpAPI and have a valid API key.")
+        console.print("Make sure you have set up SerpAPI and have a valid API key in your .env file.")
+        import traceback
+        traceback.print_exc()
 
-def main():
+async def main():
     """Run all demos."""
+    console = Console()
+    
     try:
-        # Demo 1: Basic semantic search
-        searcher = demo_basic_search()
+        # Run basic search demo
+        demo_basic_search()
         
-        # Demo 2: Fine-tuning (uncomment to enable)
-        # Note: This requires more training data to be effective
-        # searcher = demo_fine_tuning(searcher)
-        
-        # Demo 3: Hybrid search
-        demo_hybrid_search()
+        # Run hybrid search demo
+        await demo_hybrid_search()
         
         console.print("\n[bold green]Demo completed successfully![/]")
-        
     except Exception as e:
-        console.print(f"[red]Error: {e}[/]")
+        console.print(f"[red]Error during demo: {e}[/]")
         import traceback
-        console.print(traceback.format_exc())
+        traceback.print_exc()
 
 if __name__ == "__main__":
-    main()
+    import asyncio
+    asyncio.run(main())

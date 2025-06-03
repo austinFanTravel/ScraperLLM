@@ -25,7 +25,11 @@ console = Console()
 
 class SearchCLI:
     def __init__(self, model_path=None):
-        """Initialize the search CLI"""
+        """Initialize the search CLI
+        
+        Args:
+            model_path: Path to the fine-tuned model directory
+        """
         self.console = Console()
         self.current_query = ""
         self.search_history = []
@@ -47,7 +51,9 @@ class SearchCLI:
                 return
                 
             # Initialize SearchAssistant with the custom model path
-            self.assistant = SearchAssistant(model_name=str(model_path.absolute()))
+            self.assistant = SearchAssistant(
+                model_name=str(model_path.absolute())
+            )
             self.console.print("[green]✓ Loaded fine-tuned model![/green]\n")
                 
         except Exception as e:
@@ -260,12 +266,12 @@ class SearchCLI:
                 self.console.print("[red]Please enter a valid number[/red]")
 
 def main():
-    parser = argparse.ArgumentParser(description="Semantic Search Assistant CLI")
+    parser = argparse.ArgumentParser(description='Search CLI for ScraperLLM')
     parser.add_argument(
-        "--model", 
+        '--model', 
         type=str, 
-        default="./fine_tuned_model",
-        help="Path to fine-tuned model (default: ./fine_tuned_model)"
+        default="./fine_tuned_models",
+        help="Path to fine-tuned model (default: ./fine_tuned_models)"
     )
     args = parser.parse_args()
     

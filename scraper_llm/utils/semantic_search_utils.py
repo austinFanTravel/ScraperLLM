@@ -403,7 +403,7 @@ class SemanticSearchTool:
         logger.info(f"Fine-tuned model saved to {output_path}")
 
 
-def evaluate_search_quality(
+async def evaluate_search_quality(
     searcher: SemanticSearchTool,
     test_queries: List[Dict[str, Any]],
     k: int = 5,
@@ -431,7 +431,7 @@ def evaluate_search_quality(
         expected = set(query_data['expected'])
         
         # Get search results
-        results = searcher.search(query, k=k, score_threshold=score_threshold)
+        results = await searcher.search(query, k=k, score_threshold=score_threshold)
         
         # Extract retrieved documents
         retrieved = {result['text'] for result in results}
@@ -464,9 +464,9 @@ def evaluate_search_quality(
     return metrics
 
 
-def hybrid_search(
+async def hybrid_search(
     semantic_searcher: SemanticSearchTool,
-    keyword_searcher: Any,  # Any search object with a search() method
+    keyword_searcher: Any,  # Any search object with a search_async() method
     query: str,
     k: int = 5,
     alpha: float = 0.7,
@@ -477,78 +477,111 @@ def hybrid_search(
     
     Args:
         semantic_searcher: Initialized SemanticSearchTool instance
-        keyword_searcher: Any search object with a search(query, k) method
+        keyword_searcher: Any search object with a search_async(query, k) method
         query: Search query
         k: Number of results to return
         alpha: Weight for semantic search (1.0 = only semantic, 0.0 = only keyword)
-        score_threshold: Minimum score threshold for semantic search results
+        score_threshold: Minimum score for results to be included
         
     Returns:
         List of search results with combined scores
     """
     # Get semantic search results
-    semantic_results = semantic_searcher.search(query, k=k * 2, score_threshold=score_threshold)
+    semantic_results = semantic_searcher.search(
+        query=query,
+        k=k * 2,  # Get more results for better combination
+        score_threshold=score_threshold
+    )
     
     # Get keyword search results
     try:
-        keyword_results = keyword_searcher.search(query, k=k * 2)
+        # Check if keyword_searcher has search_async method
+        if hasattr(keyword_searcher, 'search_async'):
+            keyword_results = await keyword_searcher.search_async(query, max_results=k * 2)
+        else:
+            # Fall back to sync search if async not available
+            keyword_results = keyword_searcher.search(query, k=k * 2)
+            
+        # Convert SearchResult objects to dicts if needed
+        keyword_results = [
+            {
+                'text': getattr(r, 'snippet', ''),
+                'metadata': {
+                    'title': getattr(r, 'title', ''),
+                    'url': getattr(r, 'url', ''),
+                    'source': 'serpapi'
+                }
+            }
+            if not isinstance(r, dict) else r
+            for r in (keyword_results or [])
+        ]
     except Exception as e:
         logger.warning(f"Keyword search failed: {e}")
+        # If keyword search fails, fall back to semantic search only
         return semantic_results[:k]
     
-    # Combine results
+    # Create a combined results dictionary by URL to deduplicate
     combined = {}
     
-    # Add semantic results
-    for i, result in enumerate(semantic_results):
-        doc_id = result.get('metadata', {}).get('id', result['text'])
-        combined[doc_id] = {
-            'text': result['text'],
+    # Process semantic results
+    for result in semantic_results:
+        url = result.get('metadata', {}).get('url', '')
+        if not url:
+            continue
+            
+        combined[url] = {
+            'text': result.get('text', ''),
             'metadata': result.get('metadata', {}),
-            'semantic_score': result['score'],
+            'semantic_score': float(result.get('score', 0.0)),
             'keyword_score': 0.0,
-            'combined_score': result['score'] * alpha
+            'combined_score': 0.0
         }
     
-    # Add keyword results
-    for i, result in enumerate(keyword_results):
-        if hasattr(result, 'to_dict'):
-            result = result.to_dict()
+    # Process keyword results and combine scores
+    for i, result in enumerate(keyword_results, 1):
+        url = result.get('metadata', {}).get('url', '')
+        if not url:
+            continue
+            
+        # Calculate normalized keyword score (higher rank = higher score)
+        keyword_score = 1.0 - (i / (len(keyword_results) * 2))
         
-        doc_id = result.get('metadata', {}).get('id', result.get('text', str(i)))
-        score = 1.0 - (i / len(keyword_results))  # Normalize score based on rank
-        
-        if doc_id in combined:
-            # Document exists in both, update scores
-            combined[doc_id]['keyword_score'] = score
-            combined[doc_id]['combined_score'] = (
-                alpha * combined[doc_id]['semantic_score'] + 
-                (1 - alpha) * score
-            )
+        if url in combined:
+            # Update existing result with keyword score
+            combined[url]['keyword_score'] = keyword_score
         else:
-            # New document from keyword search
-            combined[doc_id] = {
+            # Add new result from keyword search
+            combined[url] = {
                 'text': result.get('text', ''),
                 'metadata': result.get('metadata', {}),
                 'semantic_score': 0.0,
-                'keyword_score': score,
-                'combined_score': score * (1 - alpha)
+                'keyword_score': keyword_score,
+                'combined_score': 0.0
             }
     
-    # Sort by combined score and return top-k
+    # Calculate combined scores
+    for url, result in combined.items():
+        result['combined_score'] = (
+            alpha * result.get('semantic_score', 0.0) +
+            (1 - alpha) * result.get('keyword_score', 0.0)
+        )
+    
+    # Sort by combined score and return top-k results
     sorted_results = sorted(
         combined.values(),
         key=lambda x: x['combined_score'],
         reverse=True
-    )
+    )[:k]
     
-    return [
-        {
-            'text': r['text'],
-            'metadata': r['metadata'],
-            'score': r['combined_score'],
-            'semantic_score': r['semantic_score'],
-            'keyword_score': r['keyword_score']
-        }
-        for r in sorted_results[:k]
-    ]
+    # Ensure all results have the expected format
+    formatted_results = []
+    for result in sorted_results:
+        formatted_results.append({
+            'text': result['text'],
+            'metadata': result['metadata'],
+            'score': result['combined_score'],
+            'semantic_score': result.get('semantic_score', 0.0),
+            'keyword_score': result.get('keyword_score', 0.0)
+        })
+    
+    return formatted_results
