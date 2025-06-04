@@ -195,37 +195,50 @@ class SearchAssistant:
         logger.info(f"Performing search: {query}")
         
         try:
+            results = []
+            
             if use_hybrid and self.keyword_searcher:
                 # Create a bound method with the instance
-                bound_wrapper = lambda q, k, **kwargs: self._keyword_search_wrapper(q, k, **kwargs)
+                bound_wrapper = lambda q, k, **kw: self._keyword_search_wrapper(q, k, **kw)
                 bound_wrapper.search_async = self._keyword_search_wrapper
                 
-                # Perform hybrid search
-                results = await hybrid_search(
-                    semantic_searcher=self.semantic_searcher,
-                    keyword_searcher=bound_wrapper,  # Pass the bound method
-                    query=query,
-                    k=k * 2,  # Get extra results for filtering
-                    alpha=0.7
-                )
-            else:
-                # Fall back to semantic search only
+                try:
+                    # Try hybrid search first
+                    results = await hybrid_search(
+                        semantic_searcher=self.semantic_searcher,
+                        keyword_searcher=bound_wrapper,
+                        query=query,
+                        k=k * 2,  # Get extra results for filtering
+                        alpha=0.7
+                    )
+                except Exception as e:
+                    logger.warning(f"Hybrid search failed, falling back to semantic search: {e}")
+            
+            # If hybrid search failed or wasn't requested, try semantic search only
+            if not results:
                 logger.info("Using semantic search only")
-                results = self.semantic_searcher.search(
-                    query=query,
-                    k=k * 2,
-                    score_threshold=min_relevance
-                )
+                try:
+                    semantic_results = self.semantic_searcher.search(
+                        query=query,
+                        k=k * 2,
+                        score_threshold=min_relevance
+                    )
+                    results = self._format_results(semantic_results)
+                except Exception as e:
+                    logger.error(f"Semantic search failed: {e}")
+                    results = []
             
-            # Format results
-            formatted_results = self._format_results(results)
-            
-            # Filter results
-            filtered_results = self.filter_results(
-                formatted_results,
-                min_relevance=min_relevance,
-                domains=domains
-            )[:num_results]  # Limit to requested number of results
+            # Format and filter results
+            if results:
+                formatted_results = self._format_results(results)
+                filtered_results = self.filter_results(
+                    formatted_results,
+                    min_relevance=min_relevance,
+                    domains=domains
+                )[:num_results]  # Limit to requested number of results
+            else:
+                logger.warning("No results found from any search method")
+                filtered_results = []
             
             # Add to search history
             search_entry = {
