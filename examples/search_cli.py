@@ -61,7 +61,7 @@ class SearchCLI:
             self.console.print("[yellow]Falling back to default model...[/yellow]")
             self.assistant = SearchAssistant()
     
-    def search_loop(self):
+    async def search_loop(self):
         """Main search loop"""
         while True:
             self.console.print("\n" + "="*50)
@@ -73,14 +73,14 @@ class SearchCLI:
             choice = Prompt.ask("\nChoose an option", choices=["1", "2", "3"])
             
             if choice == "1":
-                self._new_search()
+                await self._new_search()
             elif choice == "2":
                 self._view_history()
             else:
                 self.console.print("[yellow]Goodbye![/yellow]")
                 break
     
-    def _new_search(self):
+    async def _new_search(self):
         """Handle a new search"""
         self.console.print("\n[bold]New Search[/bold]")
         query = Prompt.ask("Enter your search query")
@@ -105,7 +105,8 @@ class SearchCLI:
         self.console.print("[yellow]This may take a moment...[/yellow]")
         
         try:
-            results = self.assistant.search(
+            # Await the async search call
+            results = await self.assistant.search(
                 query=query,
                 num_results=num_results,
                 min_relevance=min_relevance
@@ -277,7 +278,8 @@ def main():
     
     # Create and run the CLI
     cli = SearchCLI(model_path=args.model if os.path.exists(args.model) else None)
-    cli.search_loop()
+    import asyncio
+    asyncio.run(cli.search_loop())
 
 if __name__ == "__main__":
     main()
