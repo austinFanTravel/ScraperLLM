@@ -8,6 +8,7 @@ intelligent searches, filter results, and improve search quality over time.
 import os
 import sys
 from pathlib import Path
+from typing import List, Dict
 from dotenv import load_dotenv
 from rich.console import Console
 from rich.table import Table
@@ -51,7 +52,7 @@ def print_search_results(query: str, results: List[Dict]):
     
     console.print(table)
 
-def main():
+async def main():
     """Run the search assistant demo."""
     try:
         # Initialize the search assistant
@@ -100,13 +101,17 @@ def main():
                 
                 # Perform the search
                 with console.status("Searching...", spinner="dots"):
-                    results = assistant.search(
-                        query=query,
-                        num_results=10,
-                        min_relevance=min_relevance,
-                        domains=domains,
-                        export_excel=True
-                    )
+                    try:
+                        results = await assistant.search(
+                            query=query,
+                            num_results=10,
+                            min_relevance=min_relevance,
+                            domains=domains,
+                            export_excel=True
+                        )
+                    except Exception as e:
+                        console.print(f"[red]Error during search: {e}[/]")
+                        continue
                 
                 # Display results
                 print_search_results(query, results)
@@ -215,6 +220,5 @@ def main():
             assistant._save_data()
 
 if __name__ == "__main__":
-    # Add the missing List and Dict imports at runtime
-    from typing import List, Dict
-    main()
+    import asyncio
+    asyncio.run(main())

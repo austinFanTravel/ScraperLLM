@@ -110,44 +110,55 @@ class SearchAssistant:
         except Exception as e:
             logger.error(f"Failed to save data: {e}")
     
-    def _keyword_search_wrapper(self, query: str, k: int = 10) -> List[Dict[str, Any]]:
+    async def _keyword_search_wrapper(self, query: str, k: int = 10, **kwargs) -> List[Dict]:
         """
         Wrapper method to make SerpAPISearcher compatible with hybrid_search.
         
         Args:
             query: The search query
-            k: Maximum number of results to return
+            k: Maximum number of results to return (synonym for max_results)
+            **kwargs: Additional keyword arguments (including max_results for backward compatibility)
             
         Returns:
             List of search results in the format expected by hybrid_search
         """
-        import asyncio
+        # Handle both 'k' and 'max_results' parameters
+        max_results = kwargs.get('max_results', k)
         
         try:
-            # Run the async search and get results
-            loop = asyncio.get_event_loop()
-            if loop.is_running():
-                # If we're in an async context, create a new event loop
-                loop = asyncio.new_event_loop()
-                asyncio.set_event_loop(loop)
+            # Call the actual keyword search method
+            if hasattr(self.keyword_searcher, 'search_async'):
+                results = await self.keyword_searcher.search_async(query, max_results=max_results)
+            else:
+                results = self.keyword_searcher.search(query, max_results=max_results)
             
-            # Convert k to num_results for the search method
-            results = loop.run_until_complete(
-                self.keyword_searcher.search_async(query, max_results=k)
-            )
-            
-            # Convert results to the format expected by hybrid_search
+            # Format results to match expected format
             formatted_results = []
-            for result in results:
-                formatted_results.append({
-                    'text': getattr(result, 'snippet', ''),
-                    'metadata': {
-                        'title': getattr(result, 'title', ''),
-                        'url': getattr(result, 'url', ''),
-                        'source': 'serpapi'
-                    },
-                    'score': 1.0  # Default score for keyword results
-                })
+            if results:
+                for i, result in enumerate(results, 1):
+                    # Handle different result formats
+                    if isinstance(result, dict):
+                        formatted_result = {
+                            'text': result.get('snippet', result.get('text', '')),
+                            'metadata': {
+                                'title': result.get('title', ''),
+                                'url': result.get('link', result.get('url', '')),
+                                'source': result.get('source', 'keyword_search')
+                            },
+                            'score': 1.0 - (i * 0.05)  # Slight score decay
+                        }
+                    else:
+                        # Handle case where result is an object with attributes
+                        formatted_result = {
+                            'text': getattr(result, 'snippet', getattr(result, 'text', '')),
+                            'metadata': {
+                                'title': getattr(result, 'title', ''),
+                                'url': getattr(result, 'link', getattr(result, 'url', '')),
+                                'source': getattr(result, 'source', 'keyword_search')
+                            },
+                            'score': 1.0 - (i * 0.05)  # Slight score decay
+                        }
+                    formatted_results.append(formatted_result)
             
             return formatted_results
             
@@ -155,7 +166,7 @@ class SearchAssistant:
             logger.error(f"Keyword search failed: {e}")
             return []
     
-    def search(
+    async def search(
         self,
         query: str,
         num_results: int = 10,
@@ -163,7 +174,7 @@ class SearchAssistant:
         domains: Optional[List[str]] = None,
         use_hybrid: bool = True,
         **kwargs  # Accept additional kwargs for compatibility with hybrid_search
-    ) -> List[Dict[str, Any]]:
+    ) -> List[Dict]:
         """
         Perform a hybrid search and return formatted results.
         
@@ -185,10 +196,14 @@ class SearchAssistant:
         
         try:
             if use_hybrid and self.keyword_searcher:
+                # Create a bound method with the instance
+                bound_wrapper = lambda q, k, **kwargs: self._keyword_search_wrapper(q, k, **kwargs)
+                bound_wrapper.search_async = self._keyword_search_wrapper
+                
                 # Perform hybrid search
-                results = hybrid_search(
+                results = await hybrid_search(
                     semantic_searcher=self.semantic_searcher,
-                    keyword_searcher=self._keyword_search_wrapper,  # Pass the wrapper method
+                    keyword_searcher=bound_wrapper,  # Pass the bound method
                     query=query,
                     k=k * 2,  # Get extra results for filtering
                     alpha=0.7

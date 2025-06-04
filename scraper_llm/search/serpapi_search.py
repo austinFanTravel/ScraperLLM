@@ -39,7 +39,7 @@ class SerpAPISearcher(SearchEngine):
         intent: Optional[SearchIntent] = None,
         sites: Optional[List[str]] = None,
         **kwargs
-    ) -> List[SearchResult]:
+    ) -> List[Dict]:
         """Perform an asynchronous search using SerpAPI.
         
         Args:
@@ -54,25 +54,22 @@ class SerpAPISearcher(SearchEngine):
                 - any other SerpAPI parameters
                 
         Returns:
-            List of search results.
+            List of search results as dictionaries.
         """
         try:
-            # Build the search query with site restrictions if provided
-            search_query = query
-            if sites and isinstance(sites, list):
-                # Format: (query) (site:example1.com OR site:example2.com)
-                site_restrictions = " OR ".join(f"site:{site.strip()}" for site in sites if site.strip())
-                if site_restrictions:
-                    search_query = f"({query}) ({site_restrictions})"
-            
-            # Prepare search parameters
+            # Build the search parameters
             params = {
-                "q": search_query,  # Use the modified query with site restrictions
+                "q": query,
                 "num": min(max(1, max_results), 100),  # Ensure between 1-100
                 "api_key": self.api_key,
                 "hl": "en",  # Language: English
                 "gl": "us",  # Country: United States
             }
+            
+            # Add site restriction if provided
+            if sites:
+                site_restriction = " OR ".join(f"site:{site}" for site in sites)
+                params["q"] = f"{query} ({site_restriction})"
             
             # Add any additional parameters from kwargs
             if "location" in kwargs:
@@ -91,13 +88,12 @@ class SerpAPISearcher(SearchEngine):
             if "organic_results" in results:
                 for result in results["organic_results"][:max_results]:
                     try:
-                        search_result = SearchResult(
-                            title=result.get("title", ""),
-                            url=result.get("link", ""),
-                            snippet=result.get("snippet", ""),
-                            source="serpapi"
-                        )
-                        search_results.append(search_result)
+                        search_results.append({
+                            "title": result.get("title", ""),
+                            "link": result.get("link", ""),
+                            "snippet": result.get("snippet", ""),
+                            "source": "serpapi"
+                        })
                     except Exception as e:
                         self.logger.error(f"Error parsing result: {e}")
                         continue
@@ -106,36 +102,36 @@ class SerpAPISearcher(SearchEngine):
             if not search_results and ("answer_box" in results or "knowledge_graph" in results):
                 if "answer_box" in results and "answer" in results["answer_box"]:
                     answer = results["answer_box"]["answer"]
-                    search_results.append(SearchResult(
-                        title=query,
-                        url=results.get("search_metadata", {}).get("google_url", ""),
-                        snippet=answer,
-                        source="serpapi_answer_box"
-                    ))
+                    search_results.append({
+                        "title": query,
+                        "link": results.get("search_metadata", {}).get("google_url", ""),
+                        "snippet": answer,
+                        "source": "serpapi_answer_box"
+                    })
                 elif "knowledge_graph" in results:
                     kg = results["knowledge_graph"]
-                    search_results.append(SearchResult(
-                        title=kg.get("title", query),
-                        url=kg.get("source", {}).get("link", ""),
-                        snippet=kg.get("description", ""),
-                        source="serpapi_knowledge_graph"
-                    ))
+                    search_results.append({
+                        "title": kg.get("title", query),
+                        "link": kg.get("source", {}).get("link", ""),
+                        "snippet": kg.get("description", ""),
+                        "source": "serpapi_knowledge_graph"
+                    })
             
-            # If we have an intent, filter results
-            if intent:
-                search_results = await self._filter_by_intent(search_results, intent)
+            # Filter by intent if specified
+            if intent and search_results:
+                search_results = self._filter_by_intent(search_results, intent)
             
-            return search_results
+            return search_results[:max_results]
             
         except Exception as e:
             self.logger.error(f"Search failed: {e}")
-            raise
+            return []
     
     async def _filter_by_intent(
         self, 
-        results: List[SearchResult], 
+        results: List[Dict], 
         intent: SearchIntent
-    ) -> List[SearchResult]:
+    ) -> List[Dict]:
         """Filter search results by intent.
         
         Args:
