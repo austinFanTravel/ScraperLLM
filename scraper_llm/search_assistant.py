@@ -637,7 +637,7 @@ def example_usage():
             query=query,
             num_results=5, #Max search results
             min_relevance=0.2,  # Only include results with at least 20% relevance
-            domains=["google.com", "youtube.com", "instagram.com", "twitter.com", "facebook.com", "tiktok.com", "reddit.com"]  # Filter by domain
+            domains=["site:youtube.com", "site:instagram.com", "site:twitter.com", "site:facebook.com", "site:tiktok.com", "site:reddit.com"]  # Filter by domain
         )
     
     # 3. Add training examples to improve results
