@@ -33,6 +33,22 @@ class SearchAssistant:
     An intelligent search assistant that combines semantic and keyword search
     with the ability to learn from user feedback.
     """
+
+    class SearchAssistant:
+        """An intelligent search assistant that combines semantic and keyword search
+        with the ability to learn from user feedback.
+        """
+        
+        # Target social media sites for specialized searches
+        SOCIAL_MEDIA_SITES = [
+            "site:facebook.com",
+            "site:instagram.com",
+            "site:twitter.com",
+            "site:tiktok.com"
+        ]
+        
+        # Number of results to fetch per social media site
+        RESULTS_PER_SITE = 3
     
     def __init__(
         self,
@@ -498,6 +514,95 @@ class SearchAssistant:
         self._save_data()
         logger.info("Search history cleared")
 
+async def _search_social_media(self, query: str, **kwargs) -> List[Dict]:
+    """Search across all configured social media sites."""
+    all_results = []
+    
+    for site in self.SOCIAL_MEDIA_SITES:
+        site_query = f"{query} {site}"
+        try:
+            if hasattr(self.keyword_searcher, 'search_async'):
+                results = await self.keyword_searcher.search_async(
+                    site_query, 
+                    max_results=self.RESULTS_PER_SITE,
+                    **kwargs
+                )
+            else:
+                results = self.keyword_searcher.search(
+                    site_query,
+                    max_results=self.RESULTS_PER_SITE,
+                    **kwargs
+                )
+            
+            if results:
+                # Add source information
+                for result in results:
+                    if not isinstance(result, dict):
+                        result = result.__dict__
+                    result['source_site'] = site.replace('site:', '')
+                all_results.extend(results)
+                
+        except Exception as e:
+            logger.warning(f"Search failed for {site}: {e}")
+            continue
+    
+    return all_results
+
+def _format_search_results(self, results: List[Union[Dict, Any]]) -> List[Dict]:
+    """Format and deduplicate search results."""
+    formatted = []
+    seen_urls = set()
+    
+    for result in results:
+        try:
+            # Convert to dict if it's an object
+            if not isinstance(result, dict):
+                result = result.__dict__
+                
+            url = result.get('url') or result.get('link')
+            if not url or url in seen_urls:
+                continue
+                
+            seen_urls.add(url)
+            
+            formatted.append({
+                'text': result.get('snippet', result.get('description', '')),
+                'metadata': {
+                    'title': result.get('title', 'No title'),
+                    'url': url,
+                    'source': result.get('source_site', 'web'),
+                    'source_type': 'social' if result.get('source_site') else 'web'
+                },
+                'score': 1.0  # Will be adjusted during ranking
+            })
+        except Exception as e:
+            logger.warning(f"Error formatting result: {e}")
+    
+    return formatted
+
+async def _keyword_search_wrapper(self, query: str, k: int = 10, **kwargs) -> List[Dict]:
+    """Wrapper method to perform searches across multiple sources."""
+    all_results = []
+    
+    # 1. Regular search
+    try:
+        if hasattr(self.keyword_searcher, 'search_async'):
+            results = await self.keyword_searcher.search_async(query, max_results=k, **kwargs)
+        else:
+            results = self.keyword_searcher.search(query, max_results=k, **kwargs)
+        all_results.extend(results or [])
+    except Exception as e:
+        logger.warning(f"Regular search failed: {e}")
+    
+    # 2. Social media searches
+    try:
+        social_results = await self._search_social_media(query, **kwargs)
+        all_results.extend(social_results)
+    except Exception as e:
+        logger.warning(f"Social media search failed: {e}")
+    
+    # Format and return results
+    return self._format_search_results(all_results)
 
 def example_usage():
     """
