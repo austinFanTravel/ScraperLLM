@@ -1,14 +1,17 @@
 # ScraperLLM
 
-A powerful web scraping and information extraction tool with built-in Named Entity Recognition (NER) capabilities. ScraperLLM allows you to search the web, extract structured information, and analyze text content with ease.
+A powerful web scraping and information extraction tool with built-in Named Entity Recognition (NER) and advanced search capabilities. ScraperLLM combines semantic search, keyword search, and social media integration to provide comprehensive search results.
 
 ## Features
 
-- **Web Search**: Search across multiple search engines (Google, Bing, etc.)
+- **Hybrid Search**: Combines semantic and keyword search for better results
+- **Social Media Integration**: Search across multiple platforms (Twitter, Facebook, Instagram, TikTok)
+- **RSS Feed Support**: Monitor and search through custom RSS feeds
 - **Entity Extraction**: Built-in NER to identify people, organizations, locations, and more
-- **Asynchronous Processing**: High-performance async/await support for efficient scraping
-- **Configurable**: Easy to configure with environment variables and settings
-- **Extensible**: Plugin architecture for adding custom search engines and entity extractors
+- **Asynchronous Processing**: High-performance async/await support for efficient searching
+- **Search History**: Tracks and stores search history for future reference
+- **Relevance Scoring**: Advanced algorithms to rank search results by relevance
+- **Customizable**: Configure search parameters and result filtering
 
 ## Installation
 
@@ -30,68 +33,109 @@ A powerful web scraping and information extraction tool with built-in Named Enti
    pip install -r requirements-dev.txt  # For development
    ```
 
-## Usage
+## Quick Start
 
 ### Basic Search
 
-```bash
-python -m scraper_llm search "Python programming"
+```python
+from scraper_llm.search_assistant import SearchAssistant
+
+# Initialize the search assistant
+assistant = SearchAssistant()
+
+# Perform a search
+results = await assistant.search("Python programming", num_results=5)
 ```
 
-### Search with Entity Extraction
+### Search with Social Media
 
-```bash
-python -m scraper_llm search "Elon Musk" --extract-entities
+```python
+# Search across social media platforms
+results = await assistant.search("latest tech news", 
+                              domains=["twitter.com", "facebook.com"])
 ```
 
-### Save Results to File
+### Add RSS Feeds
 
-```bash
-python -m scraper_llm search "Latest AI research" --output results.json
+```python
+# Add RSS feeds for specialized search
+assistant.add_rss_feed("Tech News", "https://example.com/tech/feed")
+assistant.add_rss_feed("Sports", "https://example.com/sports/feed")
 ```
 
-### CLI Options
+## SearchAssistant API
 
+### Initialization
+
+```python
+assistant = SearchAssistant(
+    model_name="all-mpnet-base-v2",  # Default model
+    data_dir="./data/search_assistant",  # Where to store data
+    use_gpu=False  # Enable if you have CUDA
+)
 ```
-Usage: python -m scraper_llm search [OPTIONS] QUERY
 
-  Search the web and extract information.
+### Search Methods
 
-  Examples:
+```python
+# Basic search
+results = await assistant.search(
+    query="your search query",
+    num_results=10,         # Number of results to return
+    min_relevance=0.2,      # Minimum relevance score (0.0-1.0)
+    domains=None,           # Optional domain filter
+    use_hybrid=True        # Use hybrid search (semantic + keyword)
+)
 
-      $ scraper-llm search "Python programming"
-      $ scraper-llm search "Elon Musk" --max-results 5 --output results.json
-      $ scraper-llm search "Latest AI research" --extract-entities
-
-Arguments:
-  QUERY  Search query  [required]
-
-Options:
-  -m, --max-results INTEGER  Maximum number of results to return.  [default: 50]
-  -o, --output FILE          Output file to save results (JSON format).
-  -e, --extract-entities     Extract named entities from search results.
-  --help                     Show this message and exit.
+# Add training examples for better results
+assistant.add_training_example(
+    query="machine learning",
+    preferred_results=[
+        {"text": "Introduction to Machine Learning"},
+        {"text": "ML algorithms explained"}
+    ],
+    negative_results=[
+        {"text": "General programming concepts"}
+    ]
+)
 ```
 
 ## Configuration
 
-Create a `.env` file in the project root to override default settings:
+Create a `.env` file in the project root to configure settings:
 
 ```ini
-# Application settings
-DEBUG=True
-LOG_LEVEL=INFO
+# API Keys
+SERPAPI_KEY=your_serpapi_key
 
-# File paths
-DATA_DIR=./data
-LOGS_DIR=./logs
-
-# Search settings
+# Search Settings
 SEARCH_TIMEOUT=30
-MAX_RESULTS=50
+MAX_RESULTS=20
+MIN_RELEVANCE=0.2
 
-# NER settings
-NER_MODEL=en_core_web_sm
+# Social Media Settings
+SOCIAL_MEDIA_ENABLED=true
+RSS_UPDATE_INTERVAL=3600  # seconds
+
+# Paths
+DATA_DIR=./data
+CACHE_DIR=./cache
+```
+
+## Command Line Interface
+
+```bash
+# Basic search
+python -m scraper_llm search "your query"
+
+# Search with options
+python -m scraper_llm search "tech news" \
+    --max-results 15 \
+    --min-relevance 0.3 \
+    --domains twitter.com,facebook.com
+
+# Add RSS feed
+python -m scraper_llm add-feed "Tech News" https://example.com/feed/
 ```
 
 ## Development
@@ -99,7 +143,7 @@ NER_MODEL=en_core_web_sm
 ### Running Tests
 
 ```bash
-pytest
+pytest tests/
 ```
 
 ### Code Formatting
@@ -115,16 +159,14 @@ isort .
 mypy .
 ```
 
-### Linting
-
-```bash
-flake8
-```
-
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
 ## Contributing
 
-Contributions are welcome! Please feel free to submit a Pull Request.
+Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details.
+
+## Support
+
+For support, please open an issue in the GitHub repository.
