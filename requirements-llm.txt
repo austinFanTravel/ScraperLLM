@@ -1,0 +1,16 @@
+# Core requirements
+llama-cpp-python>=0.2.0
+sentence-transformers>=2.2.2
+aiohttp>=3.9.0
+beautifulsoup4>=4.12.0
+lxml>=4.9.0
+html5lib>=1.1
+loguru>=0.7.0
+
+# For GPU support (uncomment if you have a compatible NVIDIA GPU)
+# pip install llama-cpp-python --force-reinstall --upgrade --no-cache-dir \
+#     --build-option=--cuda --build-option=--cuda-arch=native
+
+# For CPU-only (faster installation, slower inference)
+# pip install llama-cpp-python --force-reinstall --upgrade --no-cache-dir \
+#     --build-option=--no-cuda
