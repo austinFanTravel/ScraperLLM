@@ -1,15 +1,20 @@
 #!/usr/bin/env python3
 """
-Interactive CLI for the Semantic Search Assistant
+Interactive CLI for the Semantic Search Assistant with Summarization
 """
 import argparse
+import asyncio
 import json
 import os
 from pathlib import Path
+from typing import List, Optional
+
 from rich.console import Console
 from rich.panel import Panel
 from rich.table import Table
+from rich.progress import Progress, SpinnerColumn, TextColumn
 from rich.prompt import Prompt, IntPrompt, FloatPrompt, Confirm
+from rich.markdown import Markdown
 
 import sys
 import os
@@ -19,6 +24,7 @@ sys.path.append(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 
 from scraper_llm.search_assistant import SearchAssistant
 from scraper_llm.utils.semantic_search_utils import SemanticSearchTool
+from scraper_llm.utils.content_processor import ContentProcessor, WebContent
 
 # Initialize console for rich output
 console = Console()
@@ -98,6 +104,27 @@ class SearchCLI:
             show_default=True
         )
         
+        # Ask if user wants summarization
+        summarize = Confirm.ask(
+            "\n[bold]Would you like to generate a summary from the top results?[/bold]",
+            default=False
+        )
+        
+        summarize_top = 3
+        if summarize:
+            while True:
+                try:
+                    value = IntPrompt.ask(
+                        "Number of top results to summarize (1-5, default: 3)",
+                        default=3
+                    )
+                    if 1 <= value <= 5:
+                        summarize_top = value
+                        break
+                    self.console.print("[red]Please enter a number between 1 and 5[/red]")
+                except ValueError:
+                    self.console.print("[red]Please enter a valid number[/red]")
+        
         self.current_query = query
         
         # Perform search
@@ -122,6 +149,10 @@ class SearchCLI:
             
             # Display results
             self._display_results(results)
+            
+            # Generate and display summary if requested
+            if summarize and results:
+                await self._generate_summary(query, results[:summarize_top])
             
             # Ask for feedback
             self._get_feedback(results)
@@ -235,10 +266,82 @@ class SearchCLI:
         else:
             self.console.print("[yellow]Thanks for your feedback![/yellow]")
     
+    async def _generate_summary(self, query: str, results: List[dict]):
+        """Generate and display a summary of the top search results"""
+        self.console.print("\n[bold blue]Analyzing search results to generate a comprehensive answer...[/]")
+        
+        async with ContentProcessor() as processor:
+            # Extract content from top results
+            contents: List[WebContent] = []
+            with Progress(
+                SpinnerColumn(),
+                TextColumn("[progress.description]{task.description}"),
+                transient=True,
+            ) as progress:
+                task = progress.add_task("Processing content...", total=len(results))
+                for result in results:
+                    url = result.get('url') or result.get('link')
+                    if url:
+                        try:
+                            content = await processor.extract_content(url, verify_ssl=False)
+                            if content:
+                                content.relevance = float(result.get('relevance', 0.0))
+                                contents.append(content)
+                                self.console.print(f"[green]✓ Processed: {url}[/]")
+                            else:
+                                self.console.print(f"[yellow]⚠️  No content extracted from: {url}[/]")
+                        except Exception as e:
+                            self.console.print(f"[red]❌ Error processing {url}: {str(e)}[/]")
+                    progress.update(task, advance=1)
+            
+            # Generate and display summary if we have content
+            if contents:
+                try:
+                    summary = await processor.generate_summary(query, contents)
+                    
+                    # Split summary into main content and sources
+                    summary_parts = summary.split('\n\nSources:')
+                    summary_text = summary_parts[0].strip()
+                    
+                    # Display the answer in a clean, formatted panel
+                    self.console.print("\n[bold green]Answer:[/]")
+                    
+                    # Create a panel with clean, wrapped text
+                    panel = Panel(
+                        summary_text,
+                        border_style="green",
+                        expand=False,
+                        width=min(80, self.console.width - 4),
+                        padding=(1, 2)
+                    )
+                    self.console.print(panel)
+                    
+                    # Display sources if available
+                    if len(summary_parts) > 1 and summary_parts[1].strip():
+                        self.console.print("\n[bold]Sources:[/]")
+                        for source in summary_parts[1].split(','):
+                            if source.strip():
+                                self.console.print(f"  • {source.strip()}")
+                    
+                    self.console.print("\n[dim]Note: This is an AI-generated summary based on the search results.[/]")
+                except Exception as e:
+                    self.console.print(f"[red]Error generating summary: {str(e)}[/]")
+                    self.console.print("[yellow]Showing raw content instead:[/]")
+                    for content in contents:
+                        self.console.print(f"\n[bold]{content.title}[/] ({content.url})")
+                        self.console.print(content.text[:500] + ("..." if len(content.text) > 500 else ""))
+            else:
+                self.console.print("[yellow]⚠️  Could not extract any content for summarization.[/]")
+                self.console.print("This could be due to:")
+                self.console.print("  • Websites blocking automated access")
+                self.console.print("  • Network connectivity issues")
+                self.console.print("  • Paywalls or login requirements")
+                self.console.print("\nTry again with different search terms or check your internet connection.")
+    
     def _view_history(self):
         """View search history"""
         if not self.search_history:
-            self.console.print("[yellow]No search history yet.[/yellow]")
+            self.console.print("[yellow]No search history.[/yellow]")
             return
             
         self.console.print("\n[bold]Search History[/bold]")
