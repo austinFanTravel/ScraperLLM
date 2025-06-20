@@ -12,12 +12,13 @@ A powerful web scraping and information extraction tool with built-in Named Enti
 - **Search History**: Tracks and stores search history for future reference
 - **Relevance Scoring**: Advanced algorithms to rank search results by relevance
 - **Customizable**: Configure search parameters and result filtering
+- **Modular Architecture**: Easy to extend with custom search providers and processors
 
 ## Installation
 
 1. Clone the repository:
    ```bash
-   git clone <repository-url>
+   git clone https://github.com/yourusername/ScraperLLM.git
    cd ScraperLLM
    ```
 
@@ -32,6 +33,20 @@ A powerful web scraping and information extraction tool with built-in Named Enti
    pip install -e .
    pip install -r requirements-dev.txt  # For development
    ```
+
+## Configuration
+
+Copy the example configuration file and update it with your settings:
+
+```bash
+cp .env.example .env
+```
+
+Edit the `.env` file to configure:
+- API keys for social media platforms
+- Database connection settings
+- Search parameters
+- Logging preferences
 
 ## Quick Start
 
@@ -63,110 +78,60 @@ assistant.add_rss_feed("Tech News", "https://example.com/tech/feed")
 assistant.add_rss_feed("Sports", "https://example.com/sports/feed")
 ```
 
-## SearchAssistant API
+## Project Structure
 
-### Initialization
-
-```python
-assistant = SearchAssistant(
-    model_name="all-mpnet-base-v2",  # Default model
-    data_dir="./data/search_assistant",  # Where to store data
-    use_gpu=False  # Enable if you have CUDA
-)
 ```
-
-### Search Methods
-
-```python
-# Basic search
-results = await assistant.search(
-    query="your search query",
-    num_results=10,         # Number of results to return
-    min_relevance=0.2,      # Minimum relevance score (0.0-1.0)
-    domains=None,           # Optional domain filter
-    use_hybrid=True        # Use hybrid search (semantic + keyword)
-)
-
-# Add training examples for better results
-assistant.add_training_example(
-    query="machine learning",
-    preferred_results=[
-        {"text": "Introduction to Machine Learning"},
-        {"text": "ML algorithms explained"}
-    ],
-    negative_results=[
-        {"text": "General programming concepts"}
-    ]
-)
-```
-
-## Configuration
-
-Create a `.env` file in the project root to configure settings:
-
-```ini
-# API Keys
-SERPAPI_KEY=your_serpapi_key
-
-# Search Settings
-SEARCH_TIMEOUT=30
-MAX_RESULTS=20
-MIN_RELEVANCE=0.2
-
-# Social Media Settings
-SOCIAL_MEDIA_ENABLED=true
-RSS_UPDATE_INTERVAL=3600  # seconds
-
-# Paths
-DATA_DIR=./data
-CACHE_DIR=./cache
-```
-
-## Command Line Interface
-
-```bash
-# Basic search
-python -m scraper_llm search "your query"
-
-# Search with options
-python -m scraper_llm search "tech news" \
-    --max-results 15 \
-    --min-relevance 0.3 \
-    --domains twitter.com,facebook.com
-
-# Add RSS feed
-python -m scraper_llm add-feed "Tech News" https://example.com/feed/
+scraper_llm/
+├── core/               # Core functionality
+├── search/             # Search providers and utilities
+├── models/             # Data models
+├── utils/              # Utility functions
+├── config.py           # Configuration settings
+└── __main__.py         # Command-line interface
 ```
 
 ## Development
 
-### Running Tests
+### Setting Up for Development
 
-```bash
-pytest tests/
-```
+1. Install development dependencies:
+   ```bash
+   pip install -r requirements-dev.txt
+   pre-commit install
+   ```
 
-### Code Formatting
+2. Run tests:
+   ```bash
+   pytest tests/
+   ```
 
-```bash
-black .
-isort .
-```
+3. Run linters:
+   ```bash
+   black .
+   flake8
+   mypy .
+   ```
 
-### Type Checking
+### Adding a New Search Provider
 
-```bash
-mypy .
-```
+1. Create a new file in `scraper_llm/search/providers/`
+2. Implement the `SearchProvider` interface
+3. Register the provider in `scraper_llm/search/__init__.py`
+
+## Contributing
+
+Contributions are welcome! Please follow these steps:
+
+1. Fork the repository
+2. Create a feature branch (`git checkout -b feature/amazing-feature`)
+3. Commit your changes (`git commit -m 'Add some amazing feature'`)
+4. Push to the branch (`git push origin feature/amazing-feature`)
+5. Open a Pull Request
 
 ## License
 
 This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
 
-## Contributing
-
-Contributions are welcome! Please read our [Contributing Guidelines](CONTRIBUTING.md) for details.
-
 ## Support
 
-For support, please open an issue in the GitHub repository.
+For support, please open an issue on the [GitHub repository](https://github.com/yourusername/ScraperLLM/issues).
