@@ -1,35 +1,8 @@
-# Model files
-models/*
-!models/.gitkeep
-
-# Data directories
-data/indices/
-data/search_assistant/
-
-# Fine-tuned models and checkpoints
-fine_tuned_models/
-checkpoints/
-
-# Large binary files
-*.gguf
-*.bin
-*.h5
-*.pt
-*.pth
-*.safetensors
-*.pkl
-*.pkl.gz
-*.joblib
-
-# Byte-compiled / optimized / DLL files
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
-
-# C extensions
 *.so
-
-# Distribution / packaging
 .Python
 build/
 develop-eggs/
@@ -47,57 +20,59 @@ wheels/
 .installed.cfg
 *.egg
 
-# PyInstaller
-*.manifest
-*.spec
+# Virtual Environment
+venv/
+env/
+ENV/
 
-# Installer logs
-pip-log.txt
-pip-delete-this-directory.txt
+# LLM Training
+checkpoints/
+models/
+*.pt
+*.pth
+*.h5
+*.bin
+*.safetensors
+*.gguf
+*.ggml
+*.pkl
+*.joblib
+fine_tuned_models/
+examples/training_data.json
 
-# Unit test / coverage reports
-htmlcov/
-.tox/
-.coverage
-.coverage.*
-.cache
-nosetests.xml
-coverage.xml
-*.cover
-.hypothesis/
-.pytest_cache/
+# Datasets
+data/
+datasets/
+*.csv
+*.jsonl
+*.parquet
+*.arrow
 
 # Jupyter Notebook
 .ipynb_checkpoints
+*.ipynb
+
+# Logs and outputs
+logs/
+outputs/
+results/
 
 # Environment variables
 .env
-.venv
-env/
-venv/
-ENV/
-env.bak/
-venv.bak/
+.env.*
+!.env.example
 
-# IDE
+# IDE specific files
 .idea/
 .vscode/
 *.swp
 *.swo
+
+# OS generated files
 .DS_Store
-
-# Training data and evaluation
-examples/training_data.json
-**/eval/
-**/runs/
-**/logs/
-**/output/
-
-# Logs
-*.log
-
-# Local development
-.env.local
-.env.development.local
-.env.test.local
-.env.production.local
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
