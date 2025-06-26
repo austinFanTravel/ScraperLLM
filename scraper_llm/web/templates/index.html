@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ScraperLLM - Semantic Search</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <!-- Load htmx for AJAX requests -->
+    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
+</head>
+<body>
+    <div class="container">
+        <h1>ScraperLLM Search</h1>
+        
+        <!-- Search Form -->
+        <div class="search-form">
+            <form id="searchForm">
+                <input type="text" 
+                       id="query" 
+                       class="search-input" 
+                       placeholder="Enter your search query..." 
+                       required>
+                <div>
+                    <label for="max_results">Max Results:</label>
+                    <select name="max_results" id="max_results">
+                        <option value="5">5</option>
+                        <option value="10" selected>10</option>
+                        <option value="20">20</option>
+                    </select>
+                </div>
+                <button type="submit" class="search-button">Search</button>
+            </form>
+        </div>
+
+        <!-- Loading Indicator -->
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Searching...</p>
+        </div>
+
+        <!-- Results Container -->
+        <div id="results" class="results-container">
+            <!-- Results will be inserted here by htmx -->
+        </div>
+
+        <!-- Export Button (initially hidden) -->
+        <button id="exportBtn" class="export-button" style="display: none;" 
+                >Export to CSV</button>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const form = document.getElementById('searchForm');
+            const searchInput = document.getElementById('query');
+            const loading = document.getElementById('loading');
+            const exportBtn = document.getElementById('exportBtn');
+            const results = document.getElementById('results');
+            const maxResults = document.getElementById('max_results');
+
+            // Handle form submission
+            form.addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const query = searchInput.value.trim();
+                
+                if (!query) {
+                    results.innerHTML = '<div class="error">Please enter a search query</div>';
+                    return;
+                }
+                
+                loading.style.display = 'block';
+                exportBtn.style.display = 'none';
+                results.innerHTML = '';
+
+                try {
+                    // Prepare the request data
+                    const requestData = {
+                        query: query,
+                        max_results: parseInt(maxResults.value, 10) || 5
+                    };
+
+                    // Make the request
+                    const response = await fetch('/api/search', {
+                        method: 'POST',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'text/html'
+                        },
+                        body: JSON.stringify(requestData)
+                    });
+
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        throw new Error(`Search failed: ${response.status} ${response.statusText}\n${errorText}`);
+                    }
+
+                    const html = await response.text();
+                    results.innerHTML = html;
+                    if (results.children.length > 0) {
+                        exportBtn.style.display = 'block';
+                    }
+                } catch (error) {
+                    console.error('Search error:', error);
+                    results.innerHTML = `<div class="error">Error performing search: ${error.message}</div>`;
+                } finally {
+                    loading.style.display = 'none';
+                }
+            });
+
+            // Handle export button click
+            exportBtn.addEventListener('click', async function() {
+                const query = searchInput.value.trim();
+                if (!query) return;
+
+                try {
+                    // Create a form and submit it to trigger file download
+                    const form = document.createElement('form');
+                    form.method = 'POST';
+                    form.action = '/api/export-csv';
+                    form.target = '_blank';  // Open in new tab
+                    
+                    // Add CSRF token if available
+                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
+                    if (csrfToken) {
+                        const csrfInput = document.createElement('input');
+                        csrfInput.type = 'hidden';
+                        csrfInput.name = 'csrf_token';
+                        csrfInput.value = csrfToken;
+                        form.appendChild(csrfInput);
+                    }
+
+                    // Add query and max_results
+                    const queryInput = document.createElement('input');
+                    queryInput.type = 'hidden';
+                    queryInput.name = 'query';
+                    queryInput.value = query;
+                    form.appendChild(queryInput);
+
+                    const maxResultsInput = document.createElement('input');
+                    maxResultsInput.type = 'hidden';
+                    maxResultsInput.name = 'max_results';
+                    maxResultsInput.value = document.getElementById('max_results').value;
+                    form.appendChild(maxResultsInput);
+
+                    // Append form to body and submit
+                    document.body.appendChild(form);
+                    form.submit();
+                    document.body.removeChild(form);
+                    
+                } catch (error) {
+                    console.error('Export error:', error);
+                    alert(`Failed to export results: ${error.message}`);
+                }
+            });
+        });
+    </script>
+</body>
+</html>
