@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  web:
+    build: .
+    container_name: scraperllm-web
+    ports:
+      - "8000:8000"
+    volumes:
+      - .:/app
+    environment:
+      - PYTHONUNBUFFERED=1
+      - LOG_LEVEL=INFO
+    # Uncomment and modify if you need to pass environment variables from .env
+    # env_file:
+    #   - .env
+    # Uncomment if you need to expose additional ports
+    # ports:
+    #   - "8001:8001"
+    # Uncomment if you need to add volumes for data persistence
+    # volumes:
+    #   - ./data:/app/data
+    #   - ./logs:/app/logs
+    # Uncomment if you need to add health checks
+    # healthcheck:
+    #   test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+    #   interval: 30s
+    #   timeout: 10s
+    #   retries: 3
