@@ -58,9 +58,7 @@ outputs/
 results/
 
 # Environment variables
-.env
-.env.*
-!.env.example
+# .env and .env.* are tracked in version control
 
 # IDE specific files
 .idea/
