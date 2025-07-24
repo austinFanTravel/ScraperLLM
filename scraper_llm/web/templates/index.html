@@ -3,155 +3,198 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ScraperLLM - Semantic Search</title>
+    <title>ScraperLLM</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="/static/styles.css">
-    <!-- Load htmx for AJAX requests -->
-    <script src="https://unpkg.com/htmx.org@1.9.6"></script>
 </head>
-<body>
-    <div class="container">
-        <h1>ScraperLLM Search</h1>
-        
-        <!-- Search Form -->
-        <div class="search-form">
-            <form id="searchForm">
-                <input type="text" 
-                       id="query" 
-                       class="search-input" 
-                       placeholder="Enter your search query..." 
-                       required>
+<body class="bg-gray-100 min-h-screen">
+    <div class="container mx-auto px-4 py-8">
+        <header class="text-center mb-12">
+            <h1 class="text-4xl font-bold text-blue-600 mb-2">ScraperLLM</h1>
+            <p class="text-gray-600">Search and scrape information using AI</p>
+        </header>
+
+        <div class="max-w-3xl mx-auto bg-white rounded-lg shadow-md p-6 mb-8">
+            <form id="searchForm" class="space-y-4">
                 <div>
-                    <label for="max_results">Max Results:</label>
-                    <select name="max_results" id="max_results">
-                        <option value="5">5</option>
-                        <option value="10" selected>10</option>
-                        <option value="20">20</option>
-                    </select>
+                    <label for="query" class="block text-sm font-medium text-gray-700 mb-1">Search Query</label>
+                    <input type="text" id="query" name="query" required
+                           class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                           placeholder="Enter your search query...">
                 </div>
-                <button type="submit" class="search-button">Search</button>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                        <label for="maxResults" class="block text-sm font-medium text-gray-700 mb-1">Max Results</label>
+                        <select id="maxResults" name="max_results"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="5">5 results</option>
+                            <option value="10">10 results</option>
+                            <option value="20">20 results</option>
+                        </select>
+                    </div>
+                    
+                    <div>
+                        <label for="searchType" class="block text-sm font-medium text-gray-700 mb-1">Search Type</label>
+                        <select id="searchType" name="search_type"
+                                class="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="web">Web Search</option>
+                            <option value="news">News</option>
+                            <option value="products">Products</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="pt-2">
+                    <button type="submit" 
+                            class="w-full bg-blue-600 text-white py-3 px-6 rounded-md hover:bg-blue-700 focus:outline-none focus:ring-2 focus:ring-blue-500 focus:ring-offset-2 transition-colors"
+                            id="searchButton">
+                        <span id="buttonText">Search</span>
+                        <span id="spinner" class="hidden ml-2">
+                            <svg class="animate-spin -ml-1 mr-3 h-5 w-5 text-white inline" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                                <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                                <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                        </span>
+                    </button>
+                </div>
             </form>
         </div>
 
-        <!-- Loading Indicator -->
-        <div class="loading" id="loading">
-            <div class="spinner"></div>
-            <p>Searching...</p>
+        <div id="results" class="max-w-3xl mx-auto">
+            <!-- Results will be inserted here -->
         </div>
-
-        <!-- Results Container -->
-        <div id="results" class="results-container">
-            <!-- Results will be inserted here by htmx -->
-        </div>
-
-        <!-- Export Button (initially hidden) -->
-        <button id="exportBtn" class="export-button" style="display: none;" 
-                >Export to CSV</button>
     </div>
 
     <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            const form = document.getElementById('searchForm');
-            const searchInput = document.getElementById('query');
-            const loading = document.getElementById('loading');
-            const exportBtn = document.getElementById('exportBtn');
-            const results = document.getElementById('results');
-            const maxResults = document.getElementById('max_results');
-
-            // Handle form submission
-            form.addEventListener('submit', async function(e) {
-                e.preventDefault();
-                const query = searchInput.value.trim();
+        document.getElementById('searchForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const form = e.target;
+            const resultsDiv = document.getElementById('results');
+            const button = document.getElementById('searchButton');
+            const buttonText = document.getElementById('buttonText');
+            const spinner = document.getElementById('spinner');
+            
+            // Show loading state
+            button.disabled = true;
+            buttonText.textContent = 'Searching...';
+            spinner.classList.remove('hidden');
+            
+            // Clear previous results
+            resultsDiv.innerHTML = '';
+            
+            try {
+                const formData = new FormData(form);
+                const params = new URLSearchParams(formData);
                 
-                if (!query) {
-                    results.innerHTML = '<div class="error">Please enter a search query</div>';
-                    return;
+                const response = await fetch('/api/search', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/x-www-form-urlencoded',
+                    },
+                    body: params
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 
-                loading.style.display = 'block';
-                exportBtn.style.display = 'none';
-                results.innerHTML = '';
-
-                try {
-                    // Prepare the request data
-                    const requestData = {
-                        query: query,
-                        max_results: parseInt(maxResults.value, 10) || 5
-                    };
-
-                    // Make the request
-                    const response = await fetch('/api/search', {
-                        method: 'POST',
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'text/html'
-                        },
-                        body: JSON.stringify(requestData)
+                const data = await response.json();
+                
+                if (data.results && data.results.length > 0) {
+                    let html = `
+                        <div class="bg-white rounded-lg shadow-md overflow-hidden mb-6">
+                            <div class="p-6">
+                                <h2 class="text-xl font-semibold mb-4">Search Results</h2>
+                                <div class="space-y-4">
+                    `;
+                    
+                    data.results.forEach((result, index) => {
+                        html += `
+                            <div class="border-l-4 border-blue-500 pl-4 py-2">
+                                <h3 class="font-medium text-lg">${result.title || 'No title'}</h3>
+                                <p class="text-gray-700">${result.snippet || 'No content available'}</p>
+                                ${result.url ? `<a href="${result.url}" target="_blank" class="text-blue-600 hover:underline text-sm">View source</a>` : ''}
+                            </div>
+                        `;
                     });
-
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        throw new Error(`Search failed: ${response.status} ${response.statusText}\n${errorText}`);
-                    }
-
-                    const html = await response.text();
-                    results.innerHTML = html;
-                    if (results.children.length > 0) {
-                        exportBtn.style.display = 'block';
-                    }
-                } catch (error) {
-                    console.error('Search error:', error);
-                    results.innerHTML = `<div class="error">Error performing search: ${error.message}</div>`;
-                } finally {
-                    loading.style.display = 'none';
-                }
-            });
-
-            // Handle export button click
-            exportBtn.addEventListener('click', async function() {
-                const query = searchInput.value.trim();
-                if (!query) return;
-
-                try {
-                    // Create a form and submit it to trigger file download
-                    const form = document.createElement('form');
-                    form.method = 'POST';
-                    form.action = '/api/export-csv';
-                    form.target = '_blank';  // Open in new tab
                     
-                    // Add CSRF token if available
-                    const csrfToken = document.querySelector('meta[name="csrf-token"]')?.content;
-                    if (csrfToken) {
-                        const csrfInput = document.createElement('input');
-                        csrfInput.type = 'hidden';
-                        csrfInput.name = 'csrf_token';
-                        csrfInput.value = csrfToken;
-                        form.appendChild(csrfInput);
-                    }
-
-                    // Add query and max_results
-                    const queryInput = document.createElement('input');
-                    queryInput.type = 'hidden';
-                    queryInput.name = 'query';
-                    queryInput.value = query;
-                    form.appendChild(queryInput);
-
-                    const maxResultsInput = document.createElement('input');
-                    maxResultsInput.type = 'hidden';
-                    maxResultsInput.name = 'max_results';
-                    maxResultsInput.value = document.getElementById('max_results').value;
-                    form.appendChild(maxResultsInput);
-
-                    // Append form to body and submit
-                    document.body.appendChild(form);
-                    form.submit();
-                    document.body.removeChild(form);
+                    html += `
+                                </div>
+                                <div class="mt-6">
+                                    <button onclick="exportToCSV(${JSON.stringify(data.results)})" 
+                                            class="bg-green-600 text-white py-2 px-4 rounded-md hover:bg-green-700 focus:outline-none focus:ring-2 focus:ring-green-500 focus:ring-offset-2 transition-colors">
+                                        Export to CSV
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    `;
                     
-                } catch (error) {
-                    console.error('Export error:', error);
-                    alert(`Failed to export results: ${error.message}`);
+                    resultsDiv.innerHTML = html;
+                } else {
+                    resultsDiv.innerHTML = `
+                        <div class="bg-white rounded-lg shadow-md p-6 text-center">
+                            <p class="text-gray-600">No results found. Try a different search query.</p>
+                        </div>
+                    `;
                 }
-            });
+            } catch (error) {
+                console.error('Error:', error);
+                resultsDiv.innerHTML = `
+                    <div class="bg-red-50 border-l-4 border-red-500 p-4 mb-6">
+                        <div class="flex">
+                            <div class="flex-shrink-0">
+                                <svg class="h-5 w-5 text-red-500" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor">
+                                    <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clip-rule="evenodd" />
+                                </svg>
+                            </div>
+                            <div class="ml-3">
+                                <p class="text-sm text-red-700">
+                                    An error occurred while processing your request. Please try again later.
+                                </p>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } finally {
+                // Reset button state
+                button.disabled = false;
+                buttonText.textContent = 'Search';
+                spinner.classList.add('hidden');
+            }
         });
+        
+        function exportToCSV(data) {
+            // Convert data to CSV
+            const headers = ['Title', 'URL', 'Snippet'];
+            const csvRows = [];
+            
+            // Add headers
+            csvRows.push(headers.join(','));
+            
+            // Add data rows
+            for (const row of data) {
+                const values = [
+                    `"${(row.title || '').replace(/"/g, '""')}"`,
+                    `"${(row.url || '').replace(/"/g, '""')}"`,
+                    `"${(row.snippet || '').replace(/"/g, '""')}"`
+                ];
+                csvRows.push(values.join(','));
+            }
+            
+            // Create download link
+            const csvContent = csvRows.join('\n');
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `scraperllm_results_${new Date().toISOString().split('T')[0]}.csv`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+        }
     </script>
 </body>
 </html>

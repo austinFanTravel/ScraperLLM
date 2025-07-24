@@ -1,5 +1,5 @@
 # Use an official Python runtime as a parent image
-FROM python:3.12-slim
+FROM python:3.11-slim
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
@@ -39,4 +39,4 @@ RUN python -m spacy download en_core_web_sm
 EXPOSE 8000
 
 # Run the application
-CMD ["python", "run_web.py"]
+CMD ["python", "run_web.py", "--host", "0.0.0.0", "--port", "8000"]
