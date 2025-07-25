@@ -29,11 +29,13 @@ COPY requirements.txt ./
 # Install Python dependencies
 RUN pip install --no-cache-dir -r requirements.txt
 
+# Install spaCy and the English model directly
+RUN pip install --no-cache-dir spacy && \
+    python -m pip install --no-cache-dir https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz && \
+    python -c "import en_core_web_sm; en_core_web_sm.load()"
+
 # Copy the current directory contents into the container at /app
 COPY . .
-
-# Download spaCy model
-RUN python -m spacy download en_core_web_sm
 
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
