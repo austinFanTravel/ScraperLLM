@@ -26,8 +26,14 @@ RUN pip install "poetry==$POETRY_VERSION"
 COPY pyproject.toml poetry.lock* ./
 COPY requirements.txt ./
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies from all requirements files
+RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
+RUN if [ -f requirements-web.txt ]; then pip install --no-cache-dir -r requirements-web.txt; fi
+RUN if [ -f requirements-llm.txt ]; then pip install --no-cache-dir -r requirements-llm.txt; fi
+RUN if [ -f requirements-dev.txt ]; then pip install --no-cache-dir -r requirements-dev.txt; fi
+
+# Install loguru explicitly since it's required
+RUN pip install --no-cache-dir loguru
 
 # Install spaCy and the English model directly
 RUN pip install --no-cache-dir spacy && \
