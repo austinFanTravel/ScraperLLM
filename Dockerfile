@@ -7,13 +7,19 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=off \
     PIP_DISABLE_PIP_VERSION_CHECK=on \
     PIP_DEFAULT_TIMEOUT=100 \
-    POETRY_VERSION=1.7.1
+    POETRY_VERSION=1.7.1 \
+    LANG=C.UTF-8 \
+    LC_ALL=C.UTF-8
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     curl \
     git \
+    gcc \
+    g++ \
+    python3-dev \
+    libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
 # Set the working directory in the container
@@ -26,22 +32,22 @@ RUN pip install "poetry==$POETRY_VERSION"
 COPY pyproject.toml poetry.lock* ./
 COPY requirements.txt ./
 
-# Install Python dependencies from all requirements files
-RUN if [ -f requirements.txt ]; then pip install --no-cache-dir -r requirements.txt; fi
-RUN if [ -f requirements-web.txt ]; then pip install --no-cache-dir -r requirements-web.txt; fi
-RUN if [ -f requirements-llm.txt ]; then pip install --no-cache-dir -r requirements-llm.txt; fi
-RUN if [ -f requirements-dev.txt ]; then pip install --no-cache-dir -r requirements-dev.txt; fi
-
-# Install required packages explicitly
-RUN pip install --no-cache-dir loguru typing_extensions
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
 
 # Install spaCy and the English model directly
 RUN pip install --no-cache-dir spacy && \
-    python -m pip install --no-cache-dir https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz && \
-    python -c "import en_core_web_sm; en_core_web_sm.load()"
+    python -m spacy download en_core_web_sm && \
+    python -c "import en_core_web_sm; nlp = en_core_web_sm.load(); print('spaCy model loaded successfully')"
 
-    # Copy the current directory contents into the container at /app
+# Install PyTorch with CPU-only support (lighter weight)
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+
+# Copy the rest of the application
 COPY . .
+
+# Set environment variables for Python
+ENV PYTHONPATH=/app
 
 # Make port 8000 available to the world outside this container
 EXPOSE 8000
