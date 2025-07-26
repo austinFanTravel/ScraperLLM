@@ -1,6 +1,6 @@
 version: '3.8'
 
-# Define environment variables from .env file
+# Define common environment variables
 x-env: &env
   env_file: .env
   environment:
@@ -8,14 +8,15 @@ x-env: &env
     - PYTHONPATH=/app
     - LOG_LEVEL=${LOG_LEVEL:-INFO}
     - DEBUG=${DEBUG:-False}
+    - OMP_NUM_THREADS=1
+    - MKL_NUM_THREADS=1
+    - NUMEXPR_NUM_THREADS=1
 
 services:
   scraperllm:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        - ENVIRONMENT=${DEVELOPMENT:-False}
     container_name: ${COMPOSE_PROJECT_NAME:-scraperllm}-app
     hostname: scraperllm-app
     restart: unless-stopped
@@ -41,11 +42,6 @@ services:
         reservations:
           cpus: '1'
           memory: 2G
-    environment:
-      <<: *env
-      OMP_NUM_THREADS: 1
-      MKL_NUM_THREADS: 1
-      NUMEXPR_NUM_THREADS: 1
 
   nginx:
     image: nginx:alpine
