@@ -43,6 +43,10 @@ RUN pip install --no-cache-dir spacy && \
 # Install PyTorch with CPU-only support (lighter weight)
 RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
 
+# Install NLTK and download required data
+RUN pip install --no-cache-dir nltk && \
+    python -c "import nltk; nltk.download('punkt'); nltk.download('wordnet'); nltk.download('stopwords'); nltk.download('averaged_perceptron_tagger')"
+
 # Copy the rest of the application
 COPY . .
 

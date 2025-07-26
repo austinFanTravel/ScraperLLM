@@ -43,6 +43,7 @@ lxml>=4.9.0  # HTML/XML processing
 spacy>=3.7.0  # For NLP tasks
 en-core-web-sm @ https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1.tar.gz  # English language model
 annoy>=1.17.0  # For approximate nearest neighbors search
+nltk>=3.8.1  # Natural Language Toolkit
 
 # CLI & Logging
 typer>=0.9.0  # For CLI
