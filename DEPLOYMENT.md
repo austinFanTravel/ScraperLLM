@@ -81,6 +81,61 @@ COMPOSE_PROJECT_NAME=scraperllm
 DEVELOPMENT=False
 ```
 
+### 3. WebFlow Integration
+
+To integrate with a WebFlow frontend, follow these steps:
+
+1. **Configure CORS**
+   - The API is already configured with CORS middleware to allow requests from WebFlow domains
+   - To add your specific WebFlow site, update the `allow_origins` list in `scraper_llm/web/app.py`:
+     ```python
+     allow_origins=[
+         "https://webflow.com",
+         "https://*.webflow.com",
+         "https://yoursite.webflow.io",  # Add your WebFlow site URL here
+         "https://your-custom-domain.com"  # Add your custom domain if applicable
+     ]
+     ```
+
+2. **API Endpoints**
+   - The main API endpoint for WebFlow integration is: `https://your-domain.com/api/search`
+   - Example fetch request from WebFlow:
+     ```javascript
+     async function search(query) {
+       try {
+         const response = await fetch('https://your-domain.com/api/search', {
+           method: 'POST',
+           headers: {
+             'Content-Type': 'application/json',
+             'X-API-Key': 'your-api-key'  // If using API key authentication
+           },
+           body: JSON.stringify({
+             query: query,
+             max_results: 5,
+             search_type: "web"
+           })
+         });
+         
+         if (!response.ok) {
+           throw new Error('Network response was not ok');
+         }
+         
+         return await response.json();
+       } catch (error) {
+         console.error('Error:', error);
+         throw error;
+       }
+     }
+     ```
+
+3. **Authentication**
+   - The API supports API key authentication
+   - Add your API key to the `.env` file:
+     ```
+     API_KEYS=your-webflow-api-key
+     ```
+   - Include the API key in the `X-API-Key` header with each request
+
 ### 3. SSL Setup (Let's Encrypt)
 
 1. Stop Nginx:

@@ -12,6 +12,7 @@ from fastapi import FastAPI, Request, HTTPException, Form, Depends
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from fastapi.responses import HTMLResponse, JSONResponse, StreamingResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 from pydantic_settings import BaseSettings
 
@@ -44,6 +45,22 @@ app = FastAPI(
     docs_url="/api/docs",
     redoc_url="/api/redoc",
     openapi_url="/api/openapi.json"
+)
+
+# Configure CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "https://webflow.com",
+        "https://*.webflow.com",
+        # Add your WebFlow site domain here in production, e.g.:
+        # "https://yoursite.webflow.io",
+        # "https://yourdomain.com"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["Content-Disposition"],  # For file downloads if needed
 )
 
 # Setup templates and static files
