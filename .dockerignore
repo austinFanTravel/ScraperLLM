@@ -41,6 +41,8 @@ htmlcov/
 .tox/
 .nox/
 .pytest_cache/
+.pytest/
+.coverage.*
 
 # Local development
 .env
@@ -48,6 +50,57 @@ htmlcov/
 !.env.example
 
 # Logs
+*.log
+logs/
+
+# Version control
+.git/
+.gitignore
+.github/
+.gitattributes
+
+# Docker
+docker-compose.override.yml
+Dockerfile
+Dockerfile.*
+!.dockerignore
+
+# Documentation
+README.md
+CONTRIBUTING.md
+CHANGELOG.md
+
+# Large data files
+*.csv
+*.json
+*.parquet
+*.feather
+*.h5
+*.hdf5
+*.pkl
+*.pth
+*.pt
+*.bin
+*.npy
+*.npz
+
+# Jupyter Notebooks
+*.ipynb
+.ipynb_checkpoints/
+
+# Cache directories
+.cache/
+.mypy_cache/
+.hypothesis/
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 *.log
 
 # Project specific
