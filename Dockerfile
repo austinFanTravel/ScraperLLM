@@ -1,38 +1,37 @@
 # Use a smaller base image
-FROM python:3.11-slim as builder
+FROM python:3.11-slim
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PYTHONPATH="/app"
 
+# Set working directory
 WORKDIR /app
 
-# Install only essential system dependencies
+# Install system dependencies
 RUN apt-get update && apt-get install -y --no-install-recommends \
     gcc \
+    curl \
     && rm -rf /var/lib/apt/lists/*
 
-# Create and activate virtual environment
-RUN python -m venv /opt/venv
-ENV PATH="/opt/venv/bin:$PATH"
-
-# Install only the most essential packages first
+# Copy requirements first to leverage Docker cache
 COPY requirements-minimal.txt .
+
+# Install Python dependencies
 RUN pip install --no-cache-dir -r requirements-minimal.txt
 
-# Copy only necessary application files
-COPY api/ /app/api/
+# Copy application code
+COPY . .
 
-# Create a non-root user
-RUN useradd -m appuser && chown -R appuser /app
+# Create and switch to non-root user
+RUN useradd -m appuser && \
+    chown -R appuser:appuser /app
 USER appuser
 
-# Set working directory to app
-WORKDIR /app
-
-# Expose port
+# Expose the application port
 EXPOSE 8000
 
 # Health check
