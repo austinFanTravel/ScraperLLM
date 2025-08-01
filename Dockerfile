@@ -1,60 +1,43 @@
-# Use an official Python runtime as a parent image
-FROM python:3.11-slim
+# Use a smaller base image
+FROM python:3.11-slim as builder
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE=1 \
-    PYTHONUNBUFFERED=1 \
-    PIP_NO_CACHE_DIR=off \
-    PIP_DISABLE_PIP_VERSION_CHECK=on \
-    PIP_DEFAULT_TIMEOUT=100 \
-    POETRY_VERSION=1.7.1 \
-    LANG=C.UTF-8 \
-    LC_ALL=C.UTF-8
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1
 
-# Install system dependencies
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    curl \
-    git \
-    gcc \
-    g++ \
-    python3-dev \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
-# Set the working directory in the container
 WORKDIR /app
 
-# Install Poetry
-RUN pip install "poetry==$POETRY_VERSION"
+# Install only essential system dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    gcc \
+    && rm -rf /var/lib/apt/lists/*
 
-# Copy only the requirements files first for better caching
-COPY pyproject.toml poetry.lock* ./
-COPY requirements.txt ./
+# Create and activate virtual environment
+RUN python -m venv /opt/venv
+ENV PATH="/opt/venv/bin:$PATH"
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install only the most essential packages first
+COPY requirements-minimal.txt .
+RUN pip install --no-cache-dir -r requirements-minimal.txt
 
-# Install spaCy and the English model directly
-RUN pip install --no-cache-dir spacy && \
-    python -m spacy download en_core_web_sm && \
-    python -c "import en_core_web_sm; nlp = en_core_web_sm.load(); print('spaCy model loaded successfully')"
+# Copy only necessary application files
+COPY api/ /app/api/
 
-# Install PyTorch with CPU-only support (lighter weight)
-RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu
+# Create a non-root user
+RUN useradd -m appuser && chown -R appuser /app
+USER appuser
 
-# Install NLTK and download required data
-RUN pip install --no-cache-dir nltk && \
-    python -c "import nltk; nltk.download('punkt'); nltk.download('wordnet'); nltk.download('stopwords'); nltk.download('averaged_perceptron_tagger')"
+# Set working directory to app
+WORKDIR /app
 
-# Copy the rest of the application
-COPY . .
-
-# Set environment variables for Python
-ENV PYTHONPATH=/app
-
-# Make port 8000 available to the world outside this container
+# Expose port
 EXPOSE 8000
 
-# Run the application using Uvicorn directly
-CMD ["uvicorn", "scraper_llm.web.app:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+  CMD curl -f http://localhost:8000/api/health || exit 1
+
+# Command to run the application
+CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
