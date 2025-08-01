@@ -1,53 +1,48 @@
 [build]
-# Build command to install dependencies and prepare the application
-command = "pip install -r requirements.txt && python -m spacy download en_core_web_sm"
+# Use the optimized Dockerfile for building
+builder = "dockerfile"
+dockerfile = "Dockerfile.railway"
 
 [deploy]
 # The command to start the application
 start_command = "uvicorn api.main:app --host 0.0.0.0 --port $PORT --workers 2"
 
 [build.railway]
-# Use a Python runtime
-runtime = "python3"
-
-# Python version
-python_version = "3.11"
-
-# Set the working directory
-workdir = "/app"
+# Use Docker build
+builder = "dockerfile"
+# Set a longer build timeout (in seconds)
+build_timeout = 1800  # 30 minutes
 
 # Environment variables
 [build.railway.variables]
 PYTHONUNBUFFERED = "1"
 PYTHONPATH = "/app"
+PYTHONDONTWRITEBYTECODE = "1"
 
 # Health check configuration
 [build.railway.healthcheck]
-# Path to the health check endpoint
 path = "/api/health"
-# Initial delay before health checks start (in seconds)
-initial_delay = 10
-# Timeout for health check (in seconds)
-timeout = 5
-# Interval between health checks (in seconds)
-interval = 30
-# Number of consecutive failures before marking as unhealthy
+initial_delay = 30  # Increased initial delay
+timeout = 10  # Increased timeout
+interval = 60
 threshold = 3
 
-# Scaling configuration
-[build.railway.scaling]
-# Minimum number of instances to run
-min_instances = 1
-# Maximum number of instances to scale to
-max_instances = 3
-# Target CPU utilization percentage for autoscaling
-target_cpu = 70
-# Target memory utilization percentage for autoscaling
-target_memory = 80
+# Resource allocation
+[build.railway.resources]
+cpu = 2  # Allocate 2 CPUs for the build
+memory = 2048  # Allocate 2GB of memory for the build
 
-# Add any additional services or plugins here
-# [plugins]
-# [plugins.postgresql]
+# Scaling configuration - simplified for initial deployment
+[build.railway.scaling]
+min_instances = 1
+max_instances = 2  # Start with fewer instances
+target_cpu = 60   # More conservative scaling
+target_memory = 70
+
+# Add build cache settings
+[build.railway.cache]
+# Cache the Python packages between builds
+paths = ["~/.cache/pip", "~/.cache/pipenv", "/opt/venv"]
 #   version = "14"
 #   [plugins.redis]
 #   version = "6"
