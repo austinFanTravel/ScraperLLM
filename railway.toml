@@ -1,48 +1,41 @@
+# Railway configuration for ScraperLLM
 [build]
-# Use the optimized Dockerfile for building
 builder = "dockerfile"
-dockerfile = "Dockerfile.railway"
+dockerfile = "Dockerfile.railway2"  # Using our simplified Dockerfile
 
 [deploy]
-# The command to start the application
 start_command = "uvicorn api.main:app --host 0.0.0.0 --port $PORT --workers 2"
 
 [build.railway]
-# Use Docker build
 builder = "dockerfile"
-# Set a longer build timeout (in seconds)
-build_timeout = 1800  # 30 minutes
+build_timeout = 900  # 15 minutes (reduced from 30)
 
 # Environment variables
 [build.railway.variables]
 PYTHONUNBUFFERED = "1"
-PYTHONPATH = "/app"
 PYTHONDONTWRITEBYTECODE = "1"
+PYTHONPATH = "/app"
 
 # Health check configuration
 [build.railway.healthcheck]
 path = "/api/health"
-initial_delay = 30  # Increased initial delay
-timeout = 10  # Increased timeout
+initial_delay = 30
+timeout = 10
 interval = 60
 threshold = 3
 
-# Resource allocation
+# Resource allocation - reduced for faster startup
 [build.railway.resources]
-cpu = 2  # Allocate 2 CPUs for the build
-memory = 2048  # Allocate 2GB of memory for the build
+cpu = 1
+memory = 1024
 
-# Scaling configuration - simplified for initial deployment
+# Simple scaling for initial deployment
 [build.railway.scaling]
 min_instances = 1
-max_instances = 2  # Start with fewer instances
-target_cpu = 60   # More conservative scaling
-target_memory = 70
+max_instances = 1  # Start with just one instance
+target_cpu = 70
+target_memory = 80
 
-# Add build cache settings
+# Cache settings
 [build.railway.cache]
-# Cache the Python packages between builds
-paths = ["~/.cache/pip", "~/.cache/pipenv", "/opt/venv"]
-#   version = "14"
-#   [plugins.redis]
-#   version = "6"
+paths = ["~/.cache/pip"]  # Simplified cache paths
