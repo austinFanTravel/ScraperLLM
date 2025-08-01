@@ -1,0 +1,53 @@
+[build]
+# Build command to install dependencies and prepare the application
+command = "pip install -r requirements.txt && python -m spacy download en_core_web_sm"
+
+[deploy]
+# The command to start the application
+start_command = "uvicorn api.main:app --host 0.0.0.0 --port $PORT --workers 2"
+
+[build.railway]
+# Use a Python runtime
+runtime = "python3"
+
+# Python version
+python_version = "3.11"
+
+# Set the working directory
+workdir = "/app"
+
+# Environment variables
+[build.railway.variables]
+PYTHONUNBUFFERED = "1"
+PYTHONPATH = "/app"
+
+# Health check configuration
+[build.railway.healthcheck]
+# Path to the health check endpoint
+path = "/api/health"
+# Initial delay before health checks start (in seconds)
+initial_delay = 10
+# Timeout for health check (in seconds)
+timeout = 5
+# Interval between health checks (in seconds)
+interval = 30
+# Number of consecutive failures before marking as unhealthy
+threshold = 3
+
+# Scaling configuration
+[build.railway.scaling]
+# Minimum number of instances to run
+min_instances = 1
+# Maximum number of instances to scale to
+max_instances = 3
+# Target CPU utilization percentage for autoscaling
+target_cpu = 70
+# Target memory utilization percentage for autoscaling
+target_memory = 80
+
+# Add any additional services or plugins here
+# [plugins]
+# [plugins.postgresql]
+#   version = "14"
+#   [plugins.redis]
+#   version = "6"
