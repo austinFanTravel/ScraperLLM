@@ -11,13 +11,64 @@ venv.bak/
 venv3.9/
 
 # Distribution / packaging
-.Python
 build/
 develop-eggs/
 dist/
 downloads/
 eggs/
 .eggs/
+*.egg-info/
+
+# Project specific
+.git
+.gitignore
+.github/
+.vscode/
+.idea/
+*.md
+*.txt
+*.rst
+
+# Test and coverage
+htmlcov/
+.tox/
+.nox/
+.coverage
+.coverage.*
+.cache
+nosetests.xml
+coverage.xml
+*.cover
+*.py,cover
+.hypothesis/
+.pytest_cache/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# Local development
+.env
+.env.*
+!.env.example
+
+# Large model files (if not needed for production)
+models/*
+!models/query_expander  # Keep only the necessary model directory
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+*.db
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
 lib/
 lib64/
 parts/
